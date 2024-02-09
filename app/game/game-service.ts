@@ -32,6 +32,9 @@ export interface GameService {
   loadOrCreate(fid: number): Promise<GuessedGame>;
   guess(game: GuessedGame, guess: string): Promise<GuessedGame>;
   isValidGuess(guess: string): boolean;
+  validateGuess(
+    guess: string | null | undefined
+  ): "VALID" | "INVALID_EMPTY" | "INVALID_SIZE" | "INVALID_FORMAT" | "INVALID_WORD";
 }
 
 const GUESS_PATTERN = /^[A-Za-z]{5}$/;
@@ -45,6 +48,50 @@ const MAX_GUESSES = 6;
 
 export class GameServiceImpl implements GameService {
   private readonly gameRepository: GameRepository = new GameRepositoryImpl();
+
+  private toGuessCharacters(
+    wordCharacters: Record<string, WordCharacter>,
+    guess: string
+  ): GuessCharacter[] {
+    const characters: GuessCharacter[] = [];
+    const charMap: Record<number, GuessCharacter> = {};
+    const charCounts: Record<string, number> = {};
+    // find correct first
+    for (let i = 0; i < guess.length; i++) {
+      const c = guess[i]!;
+      const cc = wordCharacters[c];
+      if (cc && cc.positions[i]) {
+        charMap[i] = { character: c, status: "CORRECT" };
+        charCounts[c] = (charCounts[c] || 0) + 1;
+      }
+    }
+    // find the other positions
+    for (let i = 0; i < guess.length; i++) {
+      const c = guess[i]!;
+      const cc = wordCharacters[c];
+      if (cc) {
+        if (!cc.positions[i]) {
+          charCounts[c] = (charCounts[c] || 0) + 1;
+          charMap[i] = {
+            character: c,
+            status: charCounts[c]! > cc.count ? "INCORRECT" : "WRONG_POSITION",
+          };
+        }
+      } else {
+        charMap[i] = { character: c, status: "INCORRECT" };
+      }
+    }
+    for (let i = 0; i < guess.length; i++) {
+      const c = charMap[i];
+      if (c) {
+        characters.push(c);
+      } else {
+        console.error("No character found for index", i, guess);
+        characters.push({ character: guess[i]!, status: "INCORRECT" });
+      }
+    }
+    return characters;
+  }
 
   private toGuessedGame(game: Game, dateString: string): GuessedGame {
     const word = getWordForDate(dateString);
@@ -60,34 +107,16 @@ export class GameServiceImpl implements GameService {
     const allGuessedCharacters: Record<string, GuessCharacter> = {};
     const guesses: Guess[] = [];
     for (const guess of game.guesses) {
-      const guessChars = guess.split("");
-      const characters: GuessCharacter[] = [];
-      const charCount: Record<string, number> = {};
-      for (let i = 0; i < guessChars.length; i++) {
-        const c = guessChars[i]!;
-        charCount[c] = (charCount[c] || 0) + 1;
-
-        const wc = wordCharacters[c];
-        let gc: GuessCharacter;
-        if (wc) {
-          if (wc.positions[i]) {
-            gc = { character: c, status: "CORRECT" };
-          } else if (charCount[c]! <= wc.count) {
-            gc = { character: c, status: "WRONG_POSITION" };
-          } else {
-            gc = { character: c, status: "INCORRECT" };
-          }
-        } else {
-          gc = { character: c, status: "INCORRECT" };
-        }
-        characters.push(gc);
-        const prevGuessedCharacters = allGuessedCharacters[c];
+      const characters = this.toGuessCharacters(wordCharacters, guess);
+      for (let i = 0; i < characters.length; i++) {
+        const gc = characters[i]!;
+        const prevGuessedCharacters = allGuessedCharacters[gc.character];
         if (
           !prevGuessedCharacters ||
           prevGuessedCharacters.status === "INCORRECT" ||
           gc.status === "CORRECT"
         ) {
-          allGuessedCharacters[c] = gc;
+          allGuessedCharacters[gc.character] = gc;
         }
       }
       guesses.push({ characters });
@@ -156,11 +185,25 @@ export class GameServiceImpl implements GameService {
     return this.toGuessedGame({ ...game, id }, game.date);
   }
 
+  validateGuess(guess: String | null | undefined) {
+    if (!guess) {
+      return "INVALID_EMPTY";
+    }
+    if (guess.length !== 5) {
+      return "INVALID_SIZE";
+    }
+    const formattedGuess = guess.trim().toLowerCase();
+    if (!GUESS_PATTERN.test(formattedGuess)) {
+      return "INVALID_FORMAT";
+    }
+    if (!words.includes(formattedGuess)) {
+      return "INVALID_WORD";
+    }
+    return "VALID";
+  }
+
   isValidGuess(guess: string): boolean {
-    return (
-      GUESS_PATTERN.test(guess.trim()) &&
-      words.includes(guess.trim().toLowerCase())
-    );
+    return this.validateGuess(guess) === "VALID";
   }
 }
 

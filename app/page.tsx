@@ -14,16 +14,17 @@ import sharp from "sharp";
 import { generateImage } from "./generate-image";
 import { gameService } from "./game/game-service";
 
+type GameStatus = "initial" | "in_progress" | "invalid" | "finished";
 type State = {
   active: string;
-  total_button_presses: number;
+  status: GameStatus;
 };
 
-const initialState = { active: "1", total_button_presses: 0 };
+const initialState = { status: "initial" as GameStatus, active: "1" };
 
 const reducer: FrameReducer<State> = (state, action) => {
   return {
-    total_button_presses: state.total_button_presses + 1,
+    ...state,
     active: action.postBody?.untrustedData.buttonIndex
       ? String(action.postBody?.untrustedData.buttonIndex)
       : "1",
@@ -67,10 +68,22 @@ async function nextFrame(
     };
   }
   const guess = inputText?.trim().toLowerCase() || "";
-  if (!guess || !gameService.isValidGuess(guess)) {
+  const validationResult = gameService.validateGuess(guess);
+  if (validationResult !== "VALID") {
+    let message = "Not a valid guess!";
+    switch (validationResult) {
+      case "INVALID_EMPTY":
+      case "INVALID_SIZE":
+      case "INVALID_FORMAT":
+        message = "Enter a 5-letter word!";
+        break;
+      case "INVALID_WORD":
+        message = "Word not found in dictionary!";
+        break;
+    }
     return {
       status: "invalid",
-      image: await generateImage(game, "Not a valid guess!"),
+      image: await generateImage(game, message),
     };
   }
 
@@ -114,13 +127,14 @@ export default async function Home({
     previousFrame
   );
 
+  console.log('MESSAGE', state, validMessage, previousFrame.postBody);
   // Here: do a server side side effect either sync or async (using await), such as minting an NFT if you want.
   // example: load the users credentials & check they have an NFT
 
   const fid = validMessage?.data.fid;
   const { inputText: inputTextBytes } =
     validMessage?.data.frameActionBody || {};
-  const inputText = inputTextBytes
+  const inputText = state.status !== 'finished' && inputTextBytes
     ? Buffer.from(inputTextBytes).toString("utf-8")
     : undefined;
 
@@ -143,14 +157,14 @@ export default async function Home({
     <div>
       <FrameContainer
         postUrl="/frames"
-        state={state}
+        state={{ ...state, status: nextFrameData.status }}
         previousFrame={previousFrame}
       >
         <FrameImage src={imageSrc} />
         {isFinished ? null : <FrameInput text="Make your guess..." />}
         <FrameButton onClick={dispatch}>{buttonLabel}</FrameButton>
       </FrameContainer>
-      <div style={{ padding: "3rem" }}>
+      <div style={{ padding: "3rem", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         Framedl made by <Link href="https://warpcast.com/ds8">ds8</Link>
       </div>
     </div>
