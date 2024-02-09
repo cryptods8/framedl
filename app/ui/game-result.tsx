@@ -16,7 +16,8 @@ function buildResultText(game: GuessedGame) {
 
 export default function GameResult({ game, shareUrl }: GameResultProps) {
   const handleShare = () => {
-    const title = `Framedl ${game.date} ${game.guesses.length}/6`;
+    const guessCount = game.status === "WON" ? `${game.guesses.length}` : "X";
+    const title = `Framedl ${game.date} ${guessCount}/6`;
     const resultText = buildResultText(game);
     const url = shareUrl || window.location.href;
     const text = `${title}\n\n${resultText}\n\n${url}`;
