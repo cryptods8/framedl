@@ -120,9 +120,9 @@ async function nextFrame(
 }
 
 const BASE_URL =
-  process.env["VERCEL_URL"] ||
-  process.env["NEXT_PUBLIC_HOST"] ||
-  "http://localhost:3000";
+  process.env["VERCEL_ENV"] === "production"
+    ? "https://framedl.vercel.app"
+    : "http://localhost:3000";
 
 // This is a react server component only
 export default async function Home({
@@ -170,7 +170,9 @@ export default async function Home({
 
   const game = nextFrameData.game;
 
-  const gameById = searchParams.id ? await gameService.load(searchParams.id) : null;
+  const gameById = searchParams.id
+    ? await gameService.load(searchParams.id)
+    : null;
 
   return (
     <div>
@@ -189,7 +191,10 @@ export default async function Home({
       <div className="flex flex-col p-6 w-full justify-center items-center">
         {gameById && <GameResult game={gameById} shareUrl={BASE_URL} />}
         <div className="text-center mt-8 text-sm text-slate-600">
-          Framedl made by <Link href="https://warpcast.com/ds8" className="underline">ds8</Link>
+          Framedl made by{" "}
+          <Link href="https://warpcast.com/ds8" className="underline">
+            ds8
+          </Link>
         </div>
       </div>
     </div>
