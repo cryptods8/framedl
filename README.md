@@ -23,3 +23,21 @@ vercel
 ```
 
 PRs welcome!
+
+## FAQ
+
+### What's Wordle?
+
+[A game](https://www.nytimes.com/games/wordle/index.html) where you guess a 5-letter word a day in 6 attempts or less.
+
+### What's Farcaster?
+
+Decentralized social network built on Ethereum. Come [join us](https://farcaster.xyz)!
+
+### What's Frame?
+
+Frames are an extension of OpenGraph standard that let you turn any cast (a message on farcaster protocol) into an interactive app. Designed by the farcaster team they drove an explosion in activity on the network.
+
+### Who are you?
+
+[ds8](https://warpcast.com/ds8)
