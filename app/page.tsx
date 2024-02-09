@@ -46,7 +46,7 @@ async function nextFrame(
   if (!fid) {
     return {
       status: "initial",
-      image: await generateImage(undefined, "Start guessing..."),
+      image: await generateImage(undefined, "Start FRAMEDL"),
     };
   }
   const game = await gameService.loadOrCreate(fid);
@@ -66,14 +66,20 @@ async function nextFrame(
       image: await generateImage(game, "Start guessing..."),
     };
   }
-  if (!inputText || !gameService.isValidGuess(inputText)) {
+  const guess = inputText?.trim().toLowerCase() || "";
+  if (!guess || !gameService.isValidGuess(guess)) {
     return {
       status: "invalid",
       image: await generateImage(game, "Not a valid guess!"),
     };
   }
 
-  const guess = inputText?.trim() || "";
+  if (game.originalGuesses.includes(guess)) {
+    return {
+      status: "invalid",
+      image: await generateImage(game, "Already guessed!"),
+    };
+  }
   const guessedGame = await gameService.guess(game, guess);
   if (guessedGame.status !== "IN_PROGRESS") {
     const message =
@@ -124,7 +130,9 @@ export default async function Home({
   const isFinished = nextFrameData.status === "finished";
   const buttonLabel = isFinished
     ? `Play again in ${24 - new Date().getUTCHours()} hours`
-    : "Guess";
+    : fid
+    ? "Guess"
+    : "Start";
 
   const svgImage = nextFrameData.image;
   // render image to png and encode as data url

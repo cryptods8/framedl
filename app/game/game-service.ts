@@ -21,6 +21,7 @@ export interface Guess {
 }
 
 export interface GuessedGame extends Omit<Game, "guesses"> {
+  originalGuesses: string[];
   guesses: Guess[];
   allGuessedCharacters: Record<string, GuessCharacter>;
   status: "IN_PROGRESS" | "WON" | "LOST";
@@ -65,7 +66,7 @@ export class GameServiceImpl implements GameService {
       for (let i = 0; i < guessChars.length; i++) {
         const c = guessChars[i]!;
         charCount[c] = (charCount[c] || 0) + 1;
-        
+
         const wc = wordCharacters[c];
         let gc: GuessCharacter;
         if (wc) {
@@ -81,7 +82,11 @@ export class GameServiceImpl implements GameService {
         }
         characters.push(gc);
         const prevGuessedCharacters = allGuessedCharacters[c];
-        if (!prevGuessedCharacters || prevGuessedCharacters.status === "INCORRECT" || gc.status === "CORRECT") {
+        if (
+          !prevGuessedCharacters ||
+          prevGuessedCharacters.status === "INCORRECT" ||
+          gc.status === "CORRECT"
+        ) {
           allGuessedCharacters[c] = gc;
         }
       }
@@ -89,13 +94,23 @@ export class GameServiceImpl implements GameService {
     }
 
     const lastGuess = guesses[guesses.length - 1];
-    const won = lastGuess && lastGuess.characters.reduce((acc, c) => acc && c.status === "CORRECT", true);
+    const won =
+      lastGuess &&
+      lastGuess.characters.reduce(
+        (acc, c) => acc && c.status === "CORRECT",
+        true
+      );
 
     return {
       ...game,
+      originalGuesses: game.guesses,
       guesses,
       allGuessedCharacters,
-      status: won ? "WON" : game.guesses.length >= MAX_GUESSES ? "LOST" : "IN_PROGRESS",
+      status: won
+        ? "WON"
+        : game.guesses.length >= MAX_GUESSES
+        ? "LOST"
+        : "IN_PROGRESS",
       word,
     };
   }
@@ -110,7 +125,16 @@ export class GameServiceImpl implements GameService {
         guesses: [],
       };
       const id = await this.gameRepository.save(newGame);
-      return { id, fid, date: today, guesses: [], allGuessedCharacters: {}, status: "IN_PROGRESS", word: getWordForDate(today) };
+      return {
+        id,
+        fid,
+        date: today,
+        guesses: [],
+        originalGuesses: [],
+        allGuessedCharacters: {},
+        status: "IN_PROGRESS",
+        word: getWordForDate(today),
+      };
     }
     return this.toGuessedGame(game, today);
   }
@@ -119,7 +143,10 @@ export class GameServiceImpl implements GameService {
     if (!this.isValidGuess(guess)) {
       throw new Error("Guess must be 5 letters");
     }
-    const game = await this.gameRepository.loadByFidAndDate(guessedGame.fid, guessedGame.date);
+    const game = await this.gameRepository.loadByFidAndDate(
+      guessedGame.fid,
+      guessedGame.date
+    );
     if (!game) {
       throw new Error(`Game not found: ${guessedGame.id}`);
     }
@@ -130,7 +157,10 @@ export class GameServiceImpl implements GameService {
   }
 
   isValidGuess(guess: string): boolean {
-    return GUESS_PATTERN.test(guess.trim()) && words.includes(guess.trim().toLowerCase());
+    return (
+      GUESS_PATTERN.test(guess.trim()) &&
+      words.includes(guess.trim().toLowerCase())
+    );
   }
 }
 

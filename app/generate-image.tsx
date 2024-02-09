@@ -29,7 +29,7 @@ async function renderSvg(node: ReactNode) {
           lineHeight: 1.2,
           padding: "0.5rem",
           fontSize: 36,
-          color: "black",
+          color: "rgb(31, 21, 55)",
           flex: 1,
           overflow: "hidden",
         }}
@@ -78,9 +78,9 @@ export async function generateImage(
     for (let j = 0; j < 5; j++) {
       const letter = guess ? guess.characters[j] : undefined;
       let char = "";
-      let color = "black";
+      let color = "rgb(31, 21, 55)";
       let backgroundColor = "white";
-      let borderColor = "black";
+      let borderColor = "#ccc";
       if (letter) {
         char = letter.character;
         if (letter.status === "CORRECT") {
@@ -91,6 +91,8 @@ export async function generateImage(
           color = "white";
           backgroundColor = "orange";
           borderColor = "orange";
+        } else {
+          borderColor = "rgb(31, 21, 55)";
         }
       }
       cells.push(
@@ -154,7 +156,7 @@ export async function generateImage(
                 gc.status === "WRONG_POSITION" ||
                 gc.status === "INCORRECT")
                 ? "white"
-                : "black",
+                : "rgb(31, 21, 55)",
             backgroundColor:
               gc && gc.status === "CORRECT"
                 ? "green"
@@ -228,7 +230,7 @@ export async function generateImage(
             fontSize: "3rem",
             padding: "1rem 2rem",
             color: "white",
-            backgroundColor: "rgba(0, 0, 0, 0.72)",
+            backgroundColor: "rgba(31, 21, 55, 0.84)",
             borderRadius: "1rem",
           }}
         >
