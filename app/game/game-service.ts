@@ -119,7 +119,7 @@ export class GameServiceImpl implements GameService {
     if (!this.isValidGuess(guess)) {
       throw new Error("Guess must be 5 letters");
     }
-    const game = await this.gameRepository.load(guessedGame.id);
+    const game = await this.gameRepository.loadByFidAndDate(guessedGame.fid, guessedGame.date);
     if (!game) {
       throw new Error(`Game not found: ${guessedGame.id}`);
     }

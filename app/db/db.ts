@@ -1,9 +1,9 @@
-const mem: Record<string, string> = {};
+import { kv } from "@vercel/kv";
 
 export const db = {
-  get: (key: string): Promise<string | undefined> => Promise.resolve(mem[key]),
-  set: (key: string, value: string): Promise<void> => {
-    mem[key] = value;
+  get: async<V> (key: string): Promise<V | null> => kv.get(key),
+  set: async<V> (key: string, value: V): Promise<void> => {
+    await kv.set(key, value);
     return Promise.resolve();
   },
 };
