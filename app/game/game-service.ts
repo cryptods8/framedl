@@ -1,5 +1,6 @@
 import { GameRepository, GameRepositoryImpl, Game } from "./game-repository";
-import words from "../words/word-list";
+import answers from "../words/answer-words";
+import allWords from "../words/all-words";
 
 const startingDate = new Date("2024-02-03");
 
@@ -8,7 +9,7 @@ const getWordForDate = (dateString: string): string => {
   const days = Math.floor(
     (date.getTime() - startingDate.getTime()) / (1000 * 60 * 60 * 24)
   );
-  return words[days % words.length]!;
+  return answers[days % answers.length]!;
 };
 
 export interface GuessCharacter {
@@ -205,7 +206,7 @@ export class GameServiceImpl implements GameService {
     if (!GUESS_PATTERN.test(formattedGuess)) {
       return "INVALID_FORMAT";
     }
-    if (!words.includes(formattedGuess)) {
+    if (!allWords.includes(formattedGuess)) {
       return "INVALID_WORD";
     }
     return "VALID";
