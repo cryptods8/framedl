@@ -22,7 +22,7 @@ export default function GameResult({ game, shareUrl }: GameResultProps) {
     const text = `${title}\n\n${resultText}\n\n${url}`;
     const { navigator } = window;
     if (navigator?.share) {
-      navigator.share({ title, text, url });
+      navigator.share({ title, text });
     } else if (navigator?.clipboard) {
       navigator.clipboard.writeText(text);
       alert("Copied to clipboard");
