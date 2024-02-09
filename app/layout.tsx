@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  // without a title, warpcast won't validate your frame
-  title: "frames.js starter",
-  description: "...",
+  title: "Framedl by ds8",
+  description: "Wordle in a frame",
 };
 
 export default function RootLayout({

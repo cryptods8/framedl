@@ -9,6 +9,8 @@ import {
   validateActionSignature,
 } from "frames.js/next/server";
 import Link from "next/link";
+import sharp from "sharp";
+
 import { generateImage } from "./generate-image";
 import { gameService } from "./game/game-service";
 
@@ -33,6 +35,10 @@ interface GameFrame {
   image: string;
 }
 
+async function svgToPng(svg: string) {
+  return sharp(Buffer.from(svg)).toFormat("png").toBuffer();
+}
+
 async function nextFrame(
   fid: number | undefined,
   inputText: string | undefined
@@ -52,6 +58,12 @@ async function nextFrame(
     return {
       status: "finished",
       image: await generateImage(game, message),
+    };
+  }
+  if (game.guesses.length === 0 && !inputText) {
+    return {
+      status: "initial",
+      image: await generateImage(game, "Start guessing..."),
     };
   }
   if (!inputText || !gameService.isValidGuess(inputText)) {
@@ -113,6 +125,12 @@ export default async function Home({
   const buttonLabel = isFinished
     ? `Play again in ${24 - new Date().getUTCHours()} hours`
     : "Guess";
+
+  const svgImage = nextFrameData.image;
+  // render image to png and encode as data url
+  const image = await svgToPng(svgImage);
+  const imageSrc = `data:image/png;base64,${image.toString("base64")}`;
+
   return (
     <div>
       <FrameContainer
@@ -120,13 +138,11 @@ export default async function Home({
         state={state}
         previousFrame={previousFrame}
       >
-        <FrameImage
-          src={`data:image/svg+xml,${encodeURIComponent(nextFrameData.image)}`}
-        />
+        <FrameImage src={imageSrc} />
         {isFinished ? null : <FrameInput text="Make your guess..." />}
         <FrameButton onClick={dispatch}>{buttonLabel}</FrameButton>
       </FrameContainer>
-      <div style={{ padding: '3rem' }}>
+      <div style={{ padding: "3rem" }}>
         Framedl made by <Link href="https://warpcast.com/ds8">ds8</Link>
       </div>
     </div>
