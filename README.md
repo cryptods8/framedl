@@ -36,7 +36,7 @@ Decentralized social network built on Ethereum. Come [join us](https://farcaster
 
 ### What's Frame?
 
-Frames are an extension of OpenGraph standard that let you turn any cast (a message on farcaster protocol) into an interactive app. Designed by the farcaster team they drove an explosion in activity on the network.
+[Frames](https://docs.farcaster.xyz/learn/what-is-farcaster/frames) are an extension of OpenGraph standard that let you turn any cast (a message on farcaster protocol) into an interactive app. Designed by the farcaster team they drove an explosion in activity on the network.
 
 ### Who are you?
 
