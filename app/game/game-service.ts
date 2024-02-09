@@ -30,6 +30,7 @@ export interface GuessedGame extends Omit<Game, "guesses"> {
 
 export interface GameService {
   loadOrCreate(fid: number): Promise<GuessedGame>;
+  load(id: string): Promise<GuessedGame | null>;
   guess(game: GuessedGame, guess: string): Promise<GuessedGame>;
   isValidGuess(guess: string): boolean;
   validateGuess(
@@ -166,6 +167,14 @@ export class GameServiceImpl implements GameService {
       };
     }
     return this.toGuessedGame(game, today);
+  }
+
+  async load(id: string): Promise<GuessedGame | null> {
+    const game = await this.gameRepository.loadById(id);
+    if (!game) {
+      return null;
+    }
+    return this.toGuessedGame(game, game.date);
   }
 
   async guess(guessedGame: GuessedGame, guess: string): Promise<GuessedGame> {

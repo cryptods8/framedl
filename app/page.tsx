@@ -12,7 +12,8 @@ import Link from "next/link";
 import sharp from "sharp";
 
 import { generateImage } from "./generate-image";
-import { gameService } from "./game/game-service";
+import { gameService, GuessedGame } from "./game/game-service";
+import GameResult from "./ui/game-result";
 
 type GameStatus = "initial" | "in_progress" | "invalid" | "finished";
 type State = {
@@ -34,6 +35,7 @@ const reducer: FrameReducer<State> = (state, action) => {
 interface GameFrame {
   status: "initial" | "in_progress" | "invalid" | "finished";
   image: string;
+  game?: GuessedGame;
 }
 
 async function svgToPng(svg: string) {
@@ -59,12 +61,14 @@ async function nextFrame(
     return {
       status: "finished",
       image: await generateImage(game, message),
+      game,
     };
   }
   if (game.guesses.length === 0 && !inputText) {
     return {
       status: "initial",
       image: await generateImage(game, "Start guessing..."),
+      game,
     };
   }
   const guess = inputText?.trim().toLowerCase() || "";
@@ -84,6 +88,7 @@ async function nextFrame(
     return {
       status: "invalid",
       image: await generateImage(game, message),
+      game,
     };
   }
 
@@ -91,6 +96,7 @@ async function nextFrame(
     return {
       status: "invalid",
       image: await generateImage(game, "Already guessed!"),
+      game,
     };
   }
   const guessedGame = await gameService.guess(game, guess);
@@ -102,14 +108,21 @@ async function nextFrame(
     return {
       status: "finished",
       image: await generateImage(guessedGame, message),
+      game: guessedGame,
     };
   }
 
   return {
     status: "in_progress",
     image: await generateImage(guessedGame),
+    game: guessedGame,
   };
 }
+
+const BASE_URL =
+  process.env["VERCEL_URL"] ||
+  process.env["NEXT_PUBLIC_HOST"] ||
+  "http://localhost:3000";
 
 // This is a react server component only
 export default async function Home({
@@ -127,15 +140,18 @@ export default async function Home({
     previousFrame
   );
 
+  // console.log("SP", searchParams, baseUrl);
+
   // Here: do a server side side effect either sync or async (using await), such as minting an NFT if you want.
   // example: load the users credentials & check they have an NFT
 
   const fid = validMessage?.data.fid;
   const { inputText: inputTextBytes } =
     validMessage?.data.frameActionBody || {};
-  const inputText = state.status !== 'finished' && inputTextBytes
-    ? Buffer.from(inputTextBytes).toString("utf-8")
-    : undefined;
+  const inputText =
+    state.status !== "finished" && inputTextBytes
+      ? Buffer.from(inputTextBytes).toString("utf-8")
+      : undefined;
 
   const nextFrameData = await nextFrame(fid, inputText);
 
@@ -152,6 +168,10 @@ export default async function Home({
   const image = await svgToPng(svgImage);
   const imageSrc = `data:image/png;base64,${image.toString("base64")}`;
 
+  const game = nextFrameData.game;
+
+  const gameById = searchParams.id ? await gameService.load(searchParams.id) : null;
+
   return (
     <div>
       <FrameContainer
@@ -162,9 +182,15 @@ export default async function Home({
         <FrameImage src={imageSrc} />
         {isFinished ? null : <FrameInput text="Make your guess..." />}
         <FrameButton onClick={dispatch}>{buttonLabel}</FrameButton>
+        {isFinished && game ? (
+          <FrameButton href={`${BASE_URL}/?id=${game.id}`}>Results</FrameButton>
+        ) : null}
       </FrameContainer>
-      <div style={{ padding: "3rem", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        Framedl made by <Link href="https://warpcast.com/ds8">ds8</Link>
+      <div className="flex flex-col p-6 w-full justify-center items-center">
+        {gameById && <GameResult game={gameById} shareUrl={BASE_URL} />}
+        <div className="text-center mt-8 text-sm text-slate-600">
+          Framedl made by <Link href="https://warpcast.com/ds8" className="underline">ds8</Link>
+        </div>
       </div>
     </div>
   );
