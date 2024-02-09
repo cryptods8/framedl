@@ -80,7 +80,7 @@ export async function generateImage(
       let char = "";
       let color = "rgb(31, 21, 55)";
       let backgroundColor = "white";
-      let borderColor = "#ccc";
+      let borderColor = "rgba(31, 21, 55, 0.24)";
       if (letter) {
         char = letter.character;
         if (letter.status === "CORRECT") {
@@ -163,8 +163,8 @@ export async function generateImage(
                 : gc && gc.status === "WRONG_POSITION"
                 ? "orange"
                 : gc && gc.status === "INCORRECT"
-                ? "gray"
-                : "#f0f0f0",
+                ? "rgba(31, 21, 55, 0.84)"
+                : "rgba(31, 21, 55, 0.12)",
           }}
         >
           {key.toUpperCase()}
