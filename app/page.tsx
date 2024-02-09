@@ -127,7 +127,6 @@ export default async function Home({
     previousFrame
   );
 
-  console.log('MESSAGE', state, validMessage, previousFrame.postBody);
   // Here: do a server side side effect either sync or async (using await), such as minting an NFT if you want.
   // example: load the users credentials & check they have an NFT
 
