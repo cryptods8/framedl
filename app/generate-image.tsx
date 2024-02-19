@@ -66,8 +66,8 @@ const KEYS: string[][] = [
 ];
 
 export async function generateImage(
-  game: GuessedGame | undefined,
-  overlayMessage?: string
+  game: GuessedGame | undefined | null,
+  overlayMessage?: string | null
 ) {
   const { guesses, allGuessedCharacters } = game || { guesses: [] };
 

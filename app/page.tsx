@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import sharp from "sharp";
 
-import { generateImage } from "./generate-image";
+import { signUrl } from "./utils";
 import { gameService, GuessedGame } from "./game/game-service";
 import GameResult from "./ui/game-result";
 
@@ -32,9 +32,14 @@ const reducer: FrameReducer<State> = (state, action) => {
   };
 };
 
+interface GameImageParams {
+  message?: string;
+  gameId?: string;
+}
+
 interface GameFrame {
   status: "initial" | "in_progress" | "invalid" | "finished";
-  image: string;
+  imageParams: GameImageParams;
   game?: GuessedGame;
 }
 
@@ -49,7 +54,7 @@ async function nextFrame(
   if (!fid) {
     return {
       status: "initial",
-      image: await generateImage(undefined, "Start FRAMEDL"),
+      imageParams: { message: "Start FRAMEDL" },
     };
   }
   const game = await gameService.loadOrCreate(fid);
@@ -60,14 +65,14 @@ async function nextFrame(
         : `The correct word was "${game.word.toUpperCase()}"`;
     return {
       status: "finished",
-      image: await generateImage(game, message),
+      imageParams: { gameId: game.id, message },
       game,
     };
   }
   if (game.guesses.length === 0 && !inputText) {
     return {
       status: "initial",
-      image: await generateImage(game, "Start guessing..."),
+      imageParams: { gameId: game.id, message: "Start guessing..." },
       game,
     };
   }
@@ -87,7 +92,7 @@ async function nextFrame(
     }
     return {
       status: "invalid",
-      image: await generateImage(game, message),
+      imageParams: { gameId: game.id, message },
       game,
     };
   }
@@ -95,7 +100,7 @@ async function nextFrame(
   if (game.originalGuesses.includes(guess)) {
     return {
       status: "invalid",
-      image: await generateImage(game, "Already guessed!"),
+      imageParams: { gameId: game.id, message: "Already guessed!" },
       game,
     };
   }
@@ -107,14 +112,14 @@ async function nextFrame(
         : `The correct word was "${guessedGame.word.toUpperCase()}"`;
     return {
       status: "finished",
-      image: await generateImage(guessedGame, message),
+      imageParams: { gameId: guessedGame.id, message },
       game: guessedGame,
     };
   }
 
   return {
     status: "in_progress",
-    image: await generateImage(guessedGame),
+    imageParams: { gameId: guessedGame.id },
     game: guessedGame,
   };
 }
@@ -123,6 +128,21 @@ const BASE_URL =
   process.env["VERCEL_ENV"] === "production"
     ? "https://framedl.vercel.app"
     : "http://localhost:3000";
+
+function buildImageUrl(p: GameImageParams, fid?: number): string {
+  const params = new URLSearchParams();
+  if (fid != null) {
+    params.append("fid", fid.toString());
+  }
+  if (p.message) {
+    params.append("msg", p.message);
+  }
+  if (p.gameId) {
+    params.append("gid", p.gameId);
+  }
+  const unsignedImageSrc = `${BASE_URL}/api/images?${params.toString()}`;
+  return signUrl(unsignedImageSrc);
+}
 
 // This is a react server component only
 export default async function Home({
@@ -163,11 +183,6 @@ export default async function Home({
     ? "Guess"
     : "Start";
 
-  const svgImage = nextFrameData.image;
-  // render image to png and encode as data url
-  const image = await svgToPng(svgImage);
-  const imageSrc = `data:image/png;base64,${image.toString("base64")}`;
-
   const game = nextFrameData.game;
 
   const gameById = searchParams.id
@@ -181,11 +196,11 @@ export default async function Home({
         state={{ ...state, status: nextFrameData.status }}
         previousFrame={previousFrame}
       >
-        <FrameImage src={imageSrc} />
-        {isFinished ? null : <FrameInput text="Make your guess..." />}
+        <FrameImage src={buildImageUrl(nextFrameData.imageParams, fid)} />
+        {isFinished || !fid ? null : <FrameInput text="Make your guess..." />}
         <FrameButton onClick={dispatch}>{buttonLabel}</FrameButton>
         {isFinished && game ? (
-          <FrameButton href={`${BASE_URL}/?id=${game.id}`}>Results</FrameButton>
+          <FrameButton href={`${BASE_URL}/?id=${game.id}`}>Share</FrameButton>
         ) : null}
       </FrameContainer>
       <div className="flex flex-col p-6 w-full justify-center items-center">
