@@ -31,11 +31,13 @@ async function renderImageToRes(svg: string): Promise<NextResponse> {
 
 function verifyUrl(req: NextRequest) {
   const url = getRequestUrl(req);
-  console.log("THE URL", url);
-  return new URL(verifySignedUrl(url));
+  // TODO
+  // console.log("THE URL", url);
+  // return new URL(verifySignedUrl(url));
+  return new URL(url);
 }
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
