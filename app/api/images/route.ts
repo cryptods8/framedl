@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     return renderImageToRes(svg);
   } catch (e) {
     console.error(e);
-    const svg = await generateImage(undefined, "Error occured :/");
+    const svg = await generateImage(undefined, "Error occured: " + (e as any).message);
     return renderImageToRes(svg);
   }
 }
