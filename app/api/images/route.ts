@@ -35,6 +35,8 @@ function verifyUrl(req: NextRequest) {
   return new URL(verifySignedUrl(url));
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const url = verifyUrl(req);
