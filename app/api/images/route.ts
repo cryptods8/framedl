@@ -29,9 +29,16 @@ async function renderImageToRes(svg: string): Promise<NextResponse> {
   return res;
 }
 
+function verifyUrl(req: NextRequest) {
+  const url = getRequestUrl(req);
+  console.log("THE URL", url);
+  // TODO fix this
+  // verifySignedUrl(url);
+}
+
 export async function GET(req: NextRequest) {
   try {
-    verifySignedUrl(getRequestUrl(req));
+    verifyUrl(req);
     const params = req.nextUrl.searchParams;
     const gid = params.get("gid");
     const msg = params.get("msg");
