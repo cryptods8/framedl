@@ -15,7 +15,7 @@ function getRequestUrl(req: NextRequest) {
   // const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
   // const baseUrl = `${protocol}://${host}`;
 
-  const url = req.nextUrl;
+  const url = new URL(req.url);
   return BASE_URL + url.pathname + url.search;
 }
 
@@ -32,14 +32,13 @@ async function renderImageToRes(svg: string): Promise<NextResponse> {
 function verifyUrl(req: NextRequest) {
   const url = getRequestUrl(req);
   console.log("THE URL", url);
-  // TODO fix this
-  // verifySignedUrl(url);
+  return new URL(verifySignedUrl(url));
 }
 
 export async function GET(req: NextRequest) {
   try {
-    verifyUrl(req);
-    const params = req.nextUrl.searchParams;
+    const url = verifyUrl(req);
+    const params = url.searchParams;
     const gid = params.get("gid");
     const msg = params.get("msg");
     const game = gid ? await gameService.load(gid) : null;
@@ -47,7 +46,10 @@ export async function GET(req: NextRequest) {
     return renderImageToRes(svg);
   } catch (e) {
     console.error(e);
-    const svg = await generateImage(undefined, "Error occured: " + (e as any).message);
+    const svg = await generateImage(
+      undefined,
+      "Error occured: " + (e as any).message
+    );
     return renderImageToRes(svg);
   }
 }
