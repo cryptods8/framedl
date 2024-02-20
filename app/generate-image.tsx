@@ -219,11 +219,11 @@ export async function generateImage(
           {rows}
         </div>
         <div
-          tw="flex flex-col flex-1 py-20 px-8 border-l-4"
+          tw="flex flex-col flex-1 py-20 px-8 border-l"
           style={{
             gap: "3rem",
-            borderColor: "rgba(31, 21, 55, 0.12)",
-            backgroundColor: "rgba(31, 21, 55, 0.12)",
+            borderColor: "rgba(31, 21, 55, 0.2)",
+            backgroundColor: "rgba(31, 21, 55, 0.04)",
           }}
         >
           <div
