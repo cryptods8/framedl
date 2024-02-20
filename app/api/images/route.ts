@@ -11,9 +11,18 @@ const BASE_URL =
     : "http://localhost:3000";
 
 function getRequestUrl(req: NextRequest) {
-  // const protocol = req.headers.get("x-forwarded-proto") || "https";
-  // const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
-  // const baseUrl = `${protocol}://${host}`;
+  const protocol = req.headers.get("x-forwarded-proto") || "https";
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const baseUrl = `${protocol}://${host}`;
+
+  console.log(
+    "GETTING URL",
+    req.url,
+    baseUrl,
+    req.headers.get("x-forwarded-proto"),
+    req.headers.get("x-forwarded-host"),
+    req.headers.get("host")
+  );
 
   const url = new URL(req.url);
   return BASE_URL + url.pathname + url.search;
@@ -32,12 +41,12 @@ async function renderImageToRes(svg: string): Promise<NextResponse> {
 function verifyUrl(req: NextRequest) {
   const url = getRequestUrl(req);
   // TODO
-  // console.log("THE URL", url);
+  console.log("URL", url);
   // return new URL(verifySignedUrl(url));
   return new URL(url);
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,11 +54,6 @@ export async function GET(req: NextRequest) {
     const params = url.searchParams;
     const gid = params.get("gid");
     const msg = params.get("msg");
-    const vm = params.get("vm");
-    if (vm) {
-      const svg = await generateImage(undefined, url.href);
-      return renderImageToRes(svg);
-    }
     const game = gid ? await gameService.load(gid) : null;
     const svg = await generateImage(game, msg);
     return renderImageToRes(svg);
