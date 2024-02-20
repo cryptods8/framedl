@@ -1,63 +1,77 @@
-import * as fs from "fs";
+import fs from "fs";
+import path from "path";
 import { ReactNode } from "react";
-import { join } from "path";
-import satori from "satori";
+import satori, { SatoriOptions, Font } from "satori";
 
 import { GuessedGame } from "./game/game-service";
 
-const interRegPath = join(process.cwd(), "public/Inter-Regular.ttf");
-let interReg = fs.readFileSync(interRegPath);
+function readFont(name: string) {
+  return fs.readFileSync(path.resolve(`./public/${name}`));
+}
+
+export const fonts: Font[] = [
+  {
+    name: "SpaceGrotesk",
+    data: readFont("SpaceGrotesk-Regular.ttf"),
+    weight: 400,
+    style: "normal",
+  },
+  {
+    name: "SpaceGrotesk",
+    data: readFont("SpaceGrotesk-Bold.ttf"),
+    weight: 700,
+    style: "normal",
+  },
+  {
+    name: "Inter",
+    data: readFont("Inter-Regular.ttf"),
+    weight: 400,
+    style: "normal",
+  },
+  {
+    name: "Inter",
+    data: readFont("Inter-Medium.ttf"),
+    weight: 500,
+    style: "normal",
+  },
+  {
+    name: "Inter",
+    data: readFont("Inter-SemiBold.ttf"),
+    weight: 600,
+    style: "normal",
+  },
+  {
+    name: "Inter",
+    data: readFont("Inter-Bold.ttf"),
+    weight: 700,
+    style: "normal",
+  },
+];
+
+export const options: SatoriOptions = {
+  width: 1200,
+  height: 628,
+  fonts,
+};
 
 async function renderSvg(node: ReactNode) {
   return await satori(
     <div
-      style={{
-        display: "flex", // Use flex layout
-        flexDirection: "row", // Align items horizontally
-        alignItems: "stretch", // Stretch items to fill the container height
-        width: "100%",
-        height: "100vh", // Full viewport height
-        backgroundColor: "white",
-      }}
+      tw="flex items-stretch w-full h-full bg-white"
+      style={{ fontFamily: "Inter" }}
     >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          lineHeight: 1.2,
-          padding: "0.5rem",
-          fontSize: 36,
-          color: "rgb(31, 21, 55)",
-          flex: 1,
-          overflow: "hidden",
-        }}
-      >
-        {node}
-      </div>
+      {node}
     </div>,
-    {
-      width: 1146,
-      height: 600,
-      fonts: [
-        {
-          name: "Inter",
-          data: interReg,
-          weight: 400,
-          style: "normal",
-        },
-      ],
-    }
+    options
   );
 }
 
 const MAX_GUESSES = 6;
-const CELL_W = 72;
-const CELL_H = 72;
+const CELL_W = 84;
+const CELL_H = 84;
 
-const KEY_CELL_W = 56;
-const KEY_CELL_H = 56;
+const KEY_CELL_W = 48;
+const KEY_CELL_H = 58;
 
 const KEYS: string[][] = [
   ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
@@ -65,11 +79,33 @@ const KEYS: string[][] = [
   ["z", "x", "c", "v", "b", "n", "m"],
 ];
 
+function determineGameMessage(game: GuessedGame | undefined | null) {
+  if (!game) {
+    return "Let's play!";
+  }
+  if (game.status === "WON") {
+    const attempts = game.guesses.length;
+    return `You won in ${attempts} attempts!`;
+  }
+  if (game.status === "LOST") {
+    return `The correct word was "${game.word.toUpperCase()}"`;
+  }
+  if (game.guesses.length === 0) {
+    return "Start guessing...";
+  }
+  return "Keep guessing...";
+}
+
+export interface GenerateImageOptions {
+  overlayMessage?: string | null;
+}
+
 export async function generateImage(
   game: GuessedGame | undefined | null,
-  overlayMessage?: string | null
+  options?: GenerateImageOptions
 ) {
   const { guesses, allGuessedCharacters } = game || { guesses: [] };
+  const { overlayMessage } = options || {};
 
   const rows: ReactNode[] = [];
   for (let i = 0; i < MAX_GUESSES; i++) {
@@ -78,7 +114,7 @@ export async function generateImage(
     for (let j = 0; j < 5; j++) {
       const letter = guess ? guess.characters[j] : undefined;
       let char = "";
-      let color = "rgb(31, 21, 55)";
+      let color = "rgba(31, 21, 55, 0.87)";
       let backgroundColor = "white";
       let borderColor = "rgba(31, 21, 55, 0.24)";
       if (letter) {
@@ -92,19 +128,19 @@ export async function generateImage(
           backgroundColor = "orange";
           borderColor = "orange";
         } else {
-          borderColor = "rgb(31, 21, 55)";
+          borderColor = "rgba(31, 21, 55, 0.84)";
         }
       }
       cells.push(
         <div
           key={j}
+          tw="flex justify-center items-center text-5xl"
           style={{
+            lineHeight: 1,
+            fontWeight: 600,
             width: CELL_W,
             height: CELL_H,
             color,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
             backgroundColor,
             border: "4px solid",
             borderColor,
@@ -117,13 +153,8 @@ export async function generateImage(
     rows.push(
       <div
         key={i}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "1rem",
-          padding: "0.5rem",
-        }}
+        tw="flex justify-center items-center"
+        style={{ gap: "0.5rem" }}
       >
         {cells}
       </div>
@@ -138,33 +169,31 @@ export async function generateImage(
     for (let j = 0; j < keys.length; j++) {
       const key = keys[j]!;
       const gc = allGuessedCharacters?.[key];
+      const color =
+        gc &&
+        (gc.status === "CORRECT" ||
+          gc.status === "WRONG_POSITION" ||
+          gc.status === "INCORRECT")
+          ? "white"
+          : "rgb(31, 21, 55)";
+      const backgroundColor =
+        gc && gc.status === "CORRECT"
+          ? "green"
+          : gc && gc.status === "WRONG_POSITION"
+          ? "orange"
+          : gc && gc.status === "INCORRECT"
+          ? "rgba(31, 21, 55, 0.84)"
+          : "rgba(31, 21, 55, 0.12)";
       keyCells.push(
         <div
           key={j}
+          tw="flex justify-center items-center rounded-md text-3xl"
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
+            fontWeight: 500,
             width: KEY_CELL_W,
             height: KEY_CELL_H,
-            borderRadius: "0.5rem",
-            fontSize: "2rem",
-            color:
-              gc &&
-              (gc.status === "CORRECT" ||
-                gc.status === "WRONG_POSITION" ||
-                gc.status === "INCORRECT")
-                ? "white"
-                : "rgb(31, 21, 55)",
-            backgroundColor:
-              gc && gc.status === "CORRECT"
-                ? "green"
-                : gc && gc.status === "WRONG_POSITION"
-                ? "orange"
-                : gc && gc.status === "INCORRECT"
-                ? "rgba(31, 21, 55, 0.84)"
-                : "rgba(31, 21, 55, 0.12)",
+            color,
+            backgroundColor,
           }}
         >
           {key.toUpperCase()}
@@ -172,86 +201,86 @@ export async function generateImage(
       );
     }
     keyboardRows.push(
-      <div
-        key={i}
-        style={{ display: "flex", flexDirection: "row", gap: "0.25rem" }}
-      >
+      <div key={i} tw="flex flex-row" style={{ gap: "0.5rem" }}>
         {keyCells}
       </div>
     );
   }
 
+  const gameMessage = determineGameMessage(game);
+
   return renderSvg(
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          columnGap: "3rem",
-        }}
-      >
+    <div tw="flex w-full h-full items-center justify-center relative">
+      <div tw="flex w-full h-full items-stretch justify-between">
         <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          tw="flex flex-col items-center justify-center p-12"
+          style={{ gap: "0.5rem" }}
         >
           {rows}
         </div>
         <div
+          tw="flex flex-col flex-1 py-20 px-8 border-l-4"
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.25rem",
-          }}
-        >
-          {keyboardRows}
-        </div>
-      </div>
-      {overlayMessage ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            padding: "3rem",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
+            gap: "3rem",
+            borderColor: "rgba(31, 21, 55, 0.12)",
+            backgroundColor: "rgba(31, 21, 55, 0.12)",
           }}
         >
           <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              fontSize: "3rem",
-              padding: "1rem 2rem",
-              color: "white",
-              backgroundColor: "rgba(31, 21, 55, 0.84)",
-              borderRadius: "1rem",
-              flexWrap: "wrap",
-              wordBreak: "break-all",
-            }}
+            tw="flex flex-col flex-1 items-center relative"
+            style={{ gap: "1rem" }}
           >
-            {overlayMessage}
+            <div
+              tw="flex text-5xl flex-wrap"
+              style={{
+                fontFamily: "SpaceGrotesk",
+                fontWeight: 700,
+                wordBreak: "break-all",
+                color: "rgba(31, 21, 55, 0.87)",
+              }}
+            >
+              Framedl {game?.date}
+            </div>
+            <div
+              tw="flex text-4xl flex-wrap"
+              style={{
+                fontFamily: "SpaceGrotesk",
+                fontWeight: 400,
+                wordBreak: "break-all",
+                color: "rgba(31, 21, 55, 0.64)",
+              }}
+            >
+              {gameMessage}
+            </div>
+            {overlayMessage ? (
+              <div
+                tw="absolute flex items-center justify-center"
+                style={{
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                }}
+              >
+                <div
+                  tw="flex items-center justify-center flex-wrap text-white py-4 px-8 rounded-md text-4xl"
+                  style={{
+                    backgroundColor: "rgba(31, 21, 55, 0.84)",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {overlayMessage}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <div
+            tw="flex flex-col items-center justify-center"
+            style={{ gap: "0.5rem" }}
+          >
+            {keyboardRows}
           </div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BASE_URL =
-  process.env["VERCEL_ENV"] === "production"
-    ? "https://framedl.vercel.app"
-    : "http://localhost:3000";
+import { baseUrl } from "../../constants";
 
 function getRequestUrl(req: NextRequest) {
   // const protocol = req.headers.get("x-forwarded-proto") || "https";
@@ -11,7 +7,7 @@ function getRequestUrl(req: NextRequest) {
   // const baseUrl = `${protocol}://${host}`;
 
   const url = new URL(req.url);
-  return BASE_URL + url.pathname + url.search;
+  return baseUrl + url.pathname + url.search;
 }
 
 export const dynamic = "force-dynamic";
@@ -24,7 +20,7 @@ export async function GET(req: NextRequest) {
   const host = req.headers.get("host");
 
   return NextResponse.json({
-    baseUrl: BASE_URL,
+    baseUrl,
     pathname: url.pathname,
     search: url.search,
     fwdProto,

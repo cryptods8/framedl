@@ -30,6 +30,15 @@ export function useFarcasterIdentity() {
       );
       if (storedData) {
         const user: FarcasterUser = JSON.parse(storedData);
+
+        if (user.status === "pending_approval") {
+          // Validate that deadline hasn't passed
+          if (user.deadline < Math.floor(Date.now() / 1000)) {
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.FARCASTER_USER);
+            return null;
+          }
+        }
+
         return user;
       }
       return null;
@@ -125,6 +134,24 @@ export function useFarcasterIdentity() {
     setLoading(false);
   }
 
+  async function impersonateUser({ fid }: { fid: number }) {
+    const keypair = await createKeypair();
+    const { privateKey, publicKey } = convertKeypairToHex(keypair);
+    const user: FarcasterUser = {
+      status: "impersonating",
+      fid,
+      privateKey,
+      publicKey,
+    };
+
+    localStorage.setItem(
+      LOCAL_STORAGE_KEYS.FARCASTER_USER,
+      JSON.stringify(user)
+    );
+
+    setFarcasterUser(user);
+  }
+
   async function createAndStoreSigner() {
     try {
       const keypair = await createKeypair();
@@ -182,5 +209,11 @@ export function useFarcasterIdentity() {
     }
   }
 
-  return { farcasterUser, loading, startFarcasterSignerProcess, logout };
+  return {
+    farcasterUser,
+    loading,
+    startFarcasterSignerProcess,
+    logout,
+    impersonateUser,
+  };
 }

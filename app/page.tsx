@@ -4,14 +4,15 @@ import {
   FrameImage,
   FrameInput,
   FrameReducer,
+  NextServerPageProps,
+  getFrameMessage,
   getPreviousFrame,
   useFramesReducer,
-  validateActionSignature,
 } from "frames.js/next/server";
 import Link from "next/link";
-import sharp from "sharp";
 
 import { signUrl } from "./utils";
+import { baseUrl, hubHttpUrl } from "./constants";
 import { gameService, GuessedGame } from "./game/game-service";
 import GameResult from "./ui/game-result";
 
@@ -43,10 +44,6 @@ interface GameFrame {
   game?: GuessedGame;
 }
 
-async function svgToPng(svg: string) {
-  return sharp(Buffer.from(svg)).toFormat("png").toBuffer();
-}
-
 async function nextFrame(
   fid: number | undefined,
   inputText: string | undefined
@@ -54,25 +51,21 @@ async function nextFrame(
   if (!fid) {
     return {
       status: "initial",
-      imageParams: { message: "Start FRAMEDL" },
+      imageParams: {},
     };
   }
   const game = await gameService.loadOrCreate(fid);
   if (game.status !== "IN_PROGRESS") {
-    const message =
-      game.status === "WON"
-        ? "You won!"
-        : `The correct word was "${game.word.toUpperCase()}"`;
     return {
       status: "finished",
-      imageParams: { gameId: game.id, message },
+      imageParams: { gameId: game.id },
       game,
     };
   }
   if (game.guesses.length === 0 && !inputText) {
     return {
       status: "initial",
-      imageParams: { gameId: game.id, message: "Start guessing..." },
+      imageParams: { gameId: game.id },
       game,
     };
   }
@@ -106,13 +99,9 @@ async function nextFrame(
   }
   const guessedGame = await gameService.guess(game, guess);
   if (guessedGame.status !== "IN_PROGRESS") {
-    const message =
-      guessedGame.status === "WON"
-        ? "You won!"
-        : `The correct word was "${guessedGame.word.toUpperCase()}"`;
     return {
       status: "finished",
-      imageParams: { gameId: guessedGame.id, message },
+      imageParams: { gameId: guessedGame.id },
       game: guessedGame,
     };
   }
@@ -123,11 +112,6 @@ async function nextFrame(
     game: guessedGame,
   };
 }
-
-const BASE_URL =
-  process.env["VERCEL_ENV"] === "production"
-    ? "https://framedl.vercel.app"
-    : "http://localhost:3000";
 
 function buildImageUrl(p: GameImageParams, fid?: number): string {
   const params = new URLSearchParams();
@@ -140,38 +124,29 @@ function buildImageUrl(p: GameImageParams, fid?: number): string {
   if (p.gameId) {
     params.append("gid", p.gameId);
   }
-  const unsignedImageSrc = `${BASE_URL}/api/images?${params.toString()}`;
+  const unsignedImageSrc = `${baseUrl}/api/images?${params.toString()}`;
   return signUrl(unsignedImageSrc);
 }
 
 // This is a react server component only
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Record<string, string>;
-}) {
+export default async function Home({ searchParams }: NextServerPageProps) {
   const previousFrame = getPreviousFrame<State>(searchParams);
 
-  const validMessage = await validateActionSignature(previousFrame.postBody);
+  const frameMessage = await getFrameMessage(previousFrame.postBody, {
+    fetchHubContext: false,
+    hubHttpUrl,
+  });
 
-  const [state, dispatch] = useFramesReducer<State>(
-    reducer,
-    initialState,
-    previousFrame
-  );
+  const [state] = useFramesReducer<State>(reducer, initialState, previousFrame);
 
   // console.log("SP", searchParams, baseUrl);
 
   // Here: do a server side side effect either sync or async (using await), such as minting an NFT if you want.
   // example: load the users credentials & check they have an NFT
 
-  const fid = validMessage?.data.fid;
-  const { inputText: inputTextBytes } =
-    validMessage?.data.frameActionBody || {};
+  const fid = frameMessage?.requesterFid;
   const inputText =
-    state.status !== "finished" && inputTextBytes
-      ? Buffer.from(inputTextBytes).toString("utf-8")
-      : undefined;
+    state.status !== "finished" ? frameMessage?.inputText : undefined;
 
   const nextFrameData = await nextFrame(fid, inputText);
 
@@ -185,26 +160,29 @@ export default async function Home({
 
   const game = nextFrameData.game;
 
-  const gameById = searchParams.id
-    ? await gameService.load(searchParams.id)
+  const gameById = searchParams?.id
+    ? await gameService.load(searchParams.id as string)
     : null;
 
   return (
     <div>
       <FrameContainer
+        pathname="/"
         postUrl="/frames"
         state={{ ...state, status: nextFrameData.status }}
         previousFrame={previousFrame}
       >
         <FrameImage src={buildImageUrl(nextFrameData.imageParams, fid)} />
         {isFinished || !fid ? null : <FrameInput text="Make your guess..." />}
-        <FrameButton onClick={dispatch}>{buttonLabel}</FrameButton>
+        <FrameButton>{buttonLabel}</FrameButton>
         {isFinished && game ? (
-          <FrameButton href={`${BASE_URL}/?id=${game.id}`}>Share</FrameButton>
+          <FrameButton action="link" target={`${baseUrl}/?id=${game.id}`}>
+            Share
+          </FrameButton>
         ) : null}
       </FrameContainer>
       <div className="flex flex-col p-6 w-full justify-center items-center">
-        {gameById && <GameResult game={gameById} shareUrl={BASE_URL} />}
+        {gameById && <GameResult game={gameById} shareUrl={baseUrl} />}
         <div className="text-center mt-8 text-sm text-slate-600">
           Framedl made by{" "}
           <Link href="https://warpcast.com/ds8" className="underline">

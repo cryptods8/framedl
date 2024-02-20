@@ -4,28 +4,11 @@ import sharp from "sharp";
 import { generateImage } from "../../generate-image";
 import { gameService } from "../../game/game-service";
 import { verifySignedUrl } from "../../utils";
-
-const BASE_URL =
-  process.env["VERCEL_ENV"] === "production"
-    ? "https://framedl.vercel.app"
-    : "http://localhost:3000";
+import { baseUrl } from "../../constants";
 
 function getRequestUrl(req: NextRequest) {
-  const protocol = req.headers.get("x-forwarded-proto") || "https";
-  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
-  const baseUrl = `${protocol}://${host}`;
-
-  console.log(
-    "GETTING URL",
-    req.url,
-    baseUrl,
-    req.headers.get("x-forwarded-proto"),
-    req.headers.get("x-forwarded-host"),
-    req.headers.get("host")
-  );
-
   const url = new URL(req.url);
-  return BASE_URL + url.pathname + url.search;
+  return baseUrl + url.pathname + url.search;
 }
 
 async function renderImageToRes(svg: string): Promise<NextResponse> {
@@ -40,10 +23,7 @@ async function renderImageToRes(svg: string): Promise<NextResponse> {
 
 function verifyUrl(req: NextRequest) {
   const url = getRequestUrl(req);
-  // TODO
-  console.log("URL", url);
-  // return new URL(verifySignedUrl(url));
-  return new URL(url);
+  return new URL(verifySignedUrl(url));
 }
 
 export const dynamic = "force-dynamic";
@@ -55,14 +35,13 @@ export async function GET(req: NextRequest) {
     const gid = params.get("gid");
     const msg = params.get("msg");
     const game = gid ? await gameService.load(gid) : null;
-    const svg = await generateImage(game, msg);
+    const svg = await generateImage(game, { overlayMessage: msg });
     return renderImageToRes(svg);
   } catch (e) {
     console.error(e);
-    const svg = await generateImage(
-      undefined,
-      "Error occured: " + (e as any).message
-    );
+    const svg = await generateImage(undefined, {
+      overlayMessage: "Error occured: " + (e as any).message,
+    });
     return renderImageToRes(svg);
   }
 }
