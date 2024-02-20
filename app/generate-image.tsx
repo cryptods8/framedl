@@ -224,17 +224,32 @@ export async function generateImage(
         <div
           style={{
             position: "absolute",
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            padding: "3rem",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            fontSize: "3rem",
-            padding: "1rem 2rem",
-            color: "white",
-            backgroundColor: "rgba(31, 21, 55, 0.84)",
-            borderRadius: "1rem",
           }}
         >
-          {overlayMessage}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              fontSize: "3rem",
+              padding: "1rem 2rem",
+              color: "white",
+              backgroundColor: "rgba(31, 21, 55, 0.84)",
+              borderRadius: "1rem",
+              flexWrap: "wrap",
+              wordBreak: "break-all",
+            }}
+          >
+            {overlayMessage}
+          </div>
         </div>
       ) : null}
     </div>
