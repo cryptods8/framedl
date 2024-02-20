@@ -46,6 +46,7 @@ export default function Page({
     likedCast: false,
     recastedCast: false,
     requesterVerifiedAddresses: [],
+    requesterCustodyAddress: "",
     requesterUserData: {}, // Adjust default value according to actual UserDataReturnType structure
   });
 

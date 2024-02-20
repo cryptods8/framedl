@@ -139,8 +139,6 @@ export default async function Home({ searchParams }: NextServerPageProps) {
 
   const [state] = useFramesReducer<State>(reducer, initialState, previousFrame);
 
-  // console.log("SP", searchParams, baseUrl);
-
   // Here: do a server side side effect either sync or async (using await), such as minting an NFT if you want.
   // example: load the users credentials & check they have an NFT
 
