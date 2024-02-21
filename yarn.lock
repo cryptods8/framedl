@@ -468,6 +468,13 @@
   dependencies:
     crypto-js "^4.2.0"
 
+"@upstash/redis@^1.28.4":
+  version "1.28.4"
+  resolved "https://registry.yarnpkg.com/@upstash/redis/-/redis-1.28.4.tgz#6f78adbbcf7fe51a66e57a894462fdbd655283bd"
+  integrity sha512-UalkSAny/dz1m8giEhD3Y5ru1o+CPHI32wFyS3MyzDzj2TRvEN+lTw+mPwi20ojk0H2gs8TBW3qsrvwuLLy+pA==
+  dependencies:
+    crypto-js "^4.2.0"
+
 "@vercel/kv@^1.0.1":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@vercel/kv/-/kv-1.0.1.tgz#2311e9d62eaed360eba99603c20eeb77a10a0749"
@@ -3055,6 +3062,7 @@ streamx@^2.13.0, streamx@^2.15.0:
     bare-events "^2.2.0"
 
 "string-width-cjs@npm:string-width@^4.2.0", string-width@^4.1.0:
+  name string-width-cjs
   version "4.2.3"
   resolved "https://registry.yarnpkg.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
   integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
