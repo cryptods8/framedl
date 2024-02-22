@@ -8,7 +8,8 @@ import { baseUrl } from "../../constants";
 
 function getRequestUrl(req: NextRequest) {
   const url = new URL(req.url);
-  return baseUrl + url.pathname + url.search;
+  const search = url.searchParams.toString();
+  return `${baseUrl}${url.pathname}${search ? `?${search}` : ""}`;
 }
 
 async function renderImageToRes(svg: string): Promise<NextResponse> {

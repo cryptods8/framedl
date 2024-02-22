@@ -124,7 +124,10 @@ function buildImageUrl(p: GameImageParams, fid?: number): string {
   if (p.gameId) {
     params.append("gid", p.gameId);
   }
-  const unsignedImageSrc = `${baseUrl}/api/images?${params.toString()}`;
+  const strParams = params.toString();
+  const unsignedImageSrc = `${baseUrl}/api/images${
+    strParams ? `?${strParams}` : ""
+  }`;
   return signUrl(unsignedImageSrc);
 }
 
