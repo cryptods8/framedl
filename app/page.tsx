@@ -192,12 +192,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
         ) : null}
       </FrameContainer>
       <div className="flex flex-col p-6 w-full justify-center items-center">
-        {gameById && (
-          <GameResult
-            game={gameById}
-            shareUrl={`${baseUrl}/?id=${gameById.id}`}
-          />
-        )}
+        {gameById && <GameResult game={gameById} shareUrl={baseUrl} />}
         <div className="text-center mt-8 text-sm text-slate-600">
           Framedl made by{" "}
           <Link href="https://warpcast.com/ds8" className="underline">
