@@ -79,15 +79,29 @@ const KEYS: string[][] = [
   ["z", "x", "c", "v", "b", "n", "m"],
 ];
 
-function determineGameMessage(game: GuessedGame | undefined | null) {
+function determineGameMessage(
+  game: GuessedGame | undefined | null,
+  share?: boolean
+) {
   if (!game) {
     return "Let's play!";
   }
   if (game.status === "WON") {
     const attempts = game.guesses.length;
-    return `You won in ${attempts} attempts!`;
+    let who = "You won";
+    if (share) {
+      if (game.userData?.displayName) {
+        who = game.userData.displayName + " won";
+      } else {
+        who = "Won";
+      }
+    }
+    return `${who} in ${attempts} attempts!`;
   }
   if (game.status === "LOST") {
+    if (share) {
+      return "No luck this time...";
+    }
     return `The correct word was "${game.word.toUpperCase()}"`;
   }
   if (game.guesses.length === 0) {
@@ -98,6 +112,7 @@ function determineGameMessage(game: GuessedGame | undefined | null) {
 
 export interface GenerateImageOptions {
   overlayMessage?: string | null;
+  share?: boolean;
 }
 
 export async function generateImage(
@@ -105,7 +120,7 @@ export async function generateImage(
   options?: GenerateImageOptions
 ) {
   const { guesses, allGuessedCharacters } = game || { guesses: [] };
-  const { overlayMessage } = options || {};
+  const { overlayMessage, share } = options || {};
 
   const rows: ReactNode[] = [];
   for (let i = 0; i < MAX_GUESSES; i++) {
@@ -146,7 +161,7 @@ export async function generateImage(
             borderColor,
           }}
         >
-          {char.toUpperCase()}
+          {share ? "" : char.toUpperCase()}
         </div>
       );
     }
@@ -207,7 +222,7 @@ export async function generateImage(
     );
   }
 
-  const gameMessage = determineGameMessage(game);
+  const gameMessage = determineGameMessage(game, share);
 
   return renderSvg(
     <div tw="flex w-full h-full items-center justify-center relative">
@@ -277,7 +292,7 @@ export async function generateImage(
             tw="flex flex-col items-center justify-center"
             style={{ gap: "0.5rem" }}
           >
-            {keyboardRows}
+            {share ? null : keyboardRows}
           </div>
         </div>
       </div>

@@ -35,8 +35,12 @@ export async function GET(req: NextRequest) {
     const params = url.searchParams;
     const gid = params.get("gid");
     const msg = params.get("msg");
+    const shr = params.get("shr");
     const game = gid ? await gameService.load(gid) : null;
-    const svg = await generateImage(game, { overlayMessage: msg });
+    const svg = await generateImage(game, {
+      overlayMessage: msg,
+      share: shr === "1",
+    });
     return renderImageToRes(svg);
   } catch (e) {
     console.error(e);

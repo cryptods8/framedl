@@ -36,6 +36,7 @@ const reducer: FrameReducer<State> = (state, action) => {
 interface GameImageParams {
   message?: string;
   gameId?: string;
+  share?: boolean;
 }
 
 interface GameFrame {
@@ -46,7 +47,8 @@ interface GameFrame {
 
 async function nextFrame(
   fid: number | undefined,
-  inputText: string | undefined
+  inputText: string | undefined,
+  userData?: GuessedGame["userData"]
 ): Promise<GameFrame> {
   if (!fid) {
     return {
@@ -54,7 +56,7 @@ async function nextFrame(
       imageParams: {},
     };
   }
-  const game = await gameService.loadOrCreate(fid);
+  const game = await gameService.loadOrCreate(fid, userData);
   if (game.status !== "IN_PROGRESS") {
     return {
       status: "finished",
@@ -124,6 +126,9 @@ function buildImageUrl(p: GameImageParams, fid?: number): string {
   if (p.gameId) {
     params.append("gid", p.gameId);
   }
+  if (p.share) {
+    params.append("shr", "1");
+  }
   const strParams = params.toString();
   const unsignedImageSrc = `${baseUrl}/api/images${
     strParams ? `?${strParams}` : ""
@@ -135,45 +140,49 @@ function buildImageUrl(p: GameImageParams, fid?: number): string {
 export default async function Home({ searchParams }: NextServerPageProps) {
   const previousFrame = getPreviousFrame<State>(searchParams);
 
-  const frameMessage = await getFrameMessage(previousFrame.postBody, {
-    fetchHubContext: false,
-    hubHttpUrl,
-  });
-
   const [state] = useFramesReducer<State>(reducer, initialState, previousFrame);
 
-  // Here: do a server side side effect either sync or async (using await), such as minting an NFT if you want.
-  // example: load the users credentials & check they have an NFT
+  const frameMessage = await getFrameMessage(previousFrame.postBody, {
+    fetchHubContext: state.status === "initial",
+    hubHttpUrl,
+  });
 
   const fid = frameMessage?.requesterFid;
   const inputText =
     state.status !== "finished" ? frameMessage?.inputText : undefined;
 
-  const nextFrameData = await nextFrame(fid, inputText);
+  const { game, imageParams, status } = await nextFrame(
+    fid,
+    inputText,
+    frameMessage?.requesterUserData || undefined
+  );
 
   // then, when done, return next frame
-  const isFinished = nextFrameData.status === "finished";
+  const isFinished = status === "finished";
   const buttonLabel = isFinished
     ? `Play again in ${24 - new Date().getUTCHours()} hours`
     : fid
     ? "Guess"
     : "Start";
 
-  const game = nextFrameData.game;
-
   const gameById = searchParams?.id
     ? await gameService.load(searchParams.id as string)
     : null;
+
+  if (!imageParams.gameId && searchParams?.id) {
+    imageParams.gameId = searchParams.id as string;
+    imageParams.share = true;
+  }
 
   return (
     <div>
       <FrameContainer
         pathname="/"
         postUrl="/frames"
-        state={{ ...state, status: nextFrameData.status }}
+        state={{ ...state, status }}
         previousFrame={previousFrame}
       >
-        <FrameImage src={buildImageUrl(nextFrameData.imageParams, fid)} />
+        <FrameImage src={buildImageUrl(imageParams, fid)} />
         {isFinished || !fid ? null : <FrameInput text="Make your guess..." />}
         <FrameButton>{buttonLabel}</FrameButton>
         {isFinished && game ? (
@@ -183,7 +192,12 @@ export default async function Home({ searchParams }: NextServerPageProps) {
         ) : null}
       </FrameContainer>
       <div className="flex flex-col p-6 w-full justify-center items-center">
-        {gameById && <GameResult game={gameById} shareUrl={baseUrl} />}
+        {gameById && (
+          <GameResult
+            game={gameById}
+            shareUrl={`${baseUrl}/?id=${gameById.id}`}
+          />
+        )}
         <div className="text-center mt-8 text-sm text-slate-600">
           Framedl made by{" "}
           <Link href="https://warpcast.com/ds8" className="underline">

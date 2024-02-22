@@ -1,11 +1,19 @@
 import { db } from "./../db/db";
 import { v4 as uuidv4 } from "uuid";
 
+export interface UserData {
+  displayName?: string;
+  username?: string;
+  bio?: string;
+  profileImage?: string;
+};
+
 export interface Game {
   id: string;
   fid: number;
   date: string;
   guesses: string[];
+  userData?: UserData;
 }
 
 export interface GameSave extends Omit<Game, "id"> {

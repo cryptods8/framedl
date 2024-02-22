@@ -1,4 +1,9 @@
-import { GameRepository, GameRepositoryImpl, Game } from "./game-repository";
+import {
+  GameRepository,
+  GameRepositoryImpl,
+  Game,
+  UserData,
+} from "./game-repository";
 import answers from "../words/answer-words";
 import allWords from "../words/all-words";
 
@@ -30,13 +35,18 @@ export interface GuessedGame extends Omit<Game, "guesses"> {
 }
 
 export interface GameService {
-  loadOrCreate(fid: number): Promise<GuessedGame>;
+  loadOrCreate(fid: number, userData?: UserData): Promise<GuessedGame>;
   load(id: string): Promise<GuessedGame | null>;
   guess(game: GuessedGame, guess: string): Promise<GuessedGame>;
   isValidGuess(guess: string): boolean;
   validateGuess(
     guess: string | null | undefined
-  ): "VALID" | "INVALID_EMPTY" | "INVALID_SIZE" | "INVALID_FORMAT" | "INVALID_WORD";
+  ):
+    | "VALID"
+    | "INVALID_EMPTY"
+    | "INVALID_SIZE"
+    | "INVALID_FORMAT"
+    | "INVALID_WORD";
 }
 
 const GUESS_PATTERN = /^[A-Za-z]{5}$/;
@@ -146,7 +156,7 @@ export class GameServiceImpl implements GameService {
     };
   }
 
-  async loadOrCreate(fid: number): Promise<GuessedGame> {
+  async loadOrCreate(fid: number, userData?: UserData): Promise<GuessedGame> {
     const today = new Date().toISOString().split("T")[0]!;
     const game = await this.gameRepository.loadByFidAndDate(fid, today);
     if (!game) {
@@ -154,6 +164,7 @@ export class GameServiceImpl implements GameService {
         fid,
         date: today,
         guesses: [],
+        userData,
       };
       const id = await this.gameRepository.save(newGame);
       return {
@@ -165,6 +176,7 @@ export class GameServiceImpl implements GameService {
         allGuessedCharacters: {},
         status: "IN_PROGRESS",
         word: getWordForDate(today),
+        userData,
       };
     }
     return this.toGuessedGame(game, today);
