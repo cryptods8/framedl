@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import satori, { SatoriOptions, Font } from "satori";
 
 import { GuessedGame } from "./game/game-service";
+import { loadEmoji, getIconCode } from "./twemoji";
 
 function readFont(name: string) {
   return fs.readFileSync(path.resolve(`./public/${name}`));
@@ -52,6 +53,16 @@ export const options: SatoriOptions = {
   width: 1200,
   height: 628,
   fonts,
+  loadAdditionalAsset: async (_code: string, _segment: string) => {
+    if (_code === "emoji") {
+      // It's an emoji, load the image.
+      return (
+        `data:image/svg+xml;base64,` +
+        btoa(await loadEmoji("twemoji", getIconCode(_segment)))
+      );
+    }
+    return _code;
+  },
 };
 
 async function renderSvg(node: ReactNode) {
@@ -90,8 +101,8 @@ function determineGameMessage(
     const attempts = game.guesses.length;
     let who = "You won";
     if (share) {
-      if (game.userData?.displayName) {
-        who = game.userData.displayName + " won";
+      if (game.userData?.username) {
+        who = game.userData.username + " won";
       } else {
         who = "Won";
       }
