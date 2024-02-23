@@ -174,7 +174,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
   const [state] = useFramesReducer<State>(reducer, initialState, previousFrame);
 
   const frameMessage = await getFrameMessage(previousFrame.postBody, {
-    fetchHubContext: state.status === "initial",
+    fetchHubContext: state.status === "initial" || state.status === "finished",
     hubHttpUrl,
   });
 
