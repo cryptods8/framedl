@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { ReactNode } from "react";
 import satori, { SatoriOptions, Font } from "satori";
+import sharp from "sharp";
 
 import { GuessedGame } from "./game/game-service";
 import { loadEmoji, getIconCode } from "./twemoji";
@@ -49,17 +50,23 @@ export const fonts: Font[] = [
   },
 ];
 
+const emojiCache: Record<string, string> = {};
+
 export const options: SatoriOptions = {
   width: 1200,
   height: 628,
   fonts,
   loadAdditionalAsset: async (_code: string, _segment: string) => {
     if (_code === "emoji") {
-      // It's an emoji, load the image.
-      return (
-        `data:image/svg+xml;base64,` +
-        btoa(await loadEmoji("twemoji", getIconCode(_segment)))
-      );
+      const emojiCode = getIconCode(_segment);
+      if (emojiCache[emojiCode]) {
+        return emojiCache[emojiCode]!;
+      }
+      const svg = await loadEmoji("twemoji", getIconCode(_segment));
+      const pngData = await sharp(Buffer.from(svg)).toFormat("png").toBuffer();
+      const dataUrl = `data:image/png;base64,${pngData.toString("base64")}`;
+      emojiCache[emojiCode] = dataUrl;
+      return dataUrl;
     }
     return _code;
   },
@@ -101,13 +108,13 @@ function determineGameMessage(
     const attempts = game.guesses.length;
     let who = "You won";
     if (share) {
-      if (game.userData?.username) {
-        who = game.userData.username + " won";
+      if (game.userData?.displayName) {
+        who = game.userData.displayName + " won";
       } else {
         who = "Won";
       }
     }
-    return `${who} in ${attempts} attempts!`;
+    return `🎉 ${who} in ${attempts} attempts!`;
   }
   if (game.status === "LOST") {
     if (share) {
@@ -154,7 +161,9 @@ export async function generateImage(
           backgroundColor = "orange";
           borderColor = "orange";
         } else {
-          borderColor = "rgba(31, 21, 55, 0.84)";
+          color = "white";
+          borderColor = "transparent";
+          backgroundColor = "rgba(31, 21, 55, 0.42)";
         }
       }
       cells.push(
@@ -208,7 +217,7 @@ export async function generateImage(
           : gc && gc.status === "WRONG_POSITION"
           ? "orange"
           : gc && gc.status === "INCORRECT"
-          ? "rgba(31, 21, 55, 0.84)"
+          ? "rgba(31, 21, 55, 0.42)"
           : "rgba(31, 21, 55, 0.12)";
       keyCells.push(
         <div
@@ -270,7 +279,7 @@ export async function generateImage(
             <div
               tw="flex text-4xl flex-wrap"
               style={{
-                fontFamily: "SpaceGrotesk",
+                fontFamily: "Inter",
                 fontWeight: 400,
                 wordBreak: "break-all",
                 color: "rgba(31, 21, 55, 0.64)",

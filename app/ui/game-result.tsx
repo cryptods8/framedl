@@ -55,7 +55,7 @@ export default function GameResult({ game, shareUrl }: GameResultProps) {
   };
 
   return (
-    <div className="w-72 flex flex-col items-center justify-center gap-6 text-primary-900">
+    <div className="w-64 flex flex-col items-center justify-center gap-6 text-primary-900">
       {!game && (
         <div className="w-full flex flex-col gap-1">
           <p className="w-full text-left text-2xl font-spaceBold">Framedl</p>
@@ -63,17 +63,17 @@ export default function GameResult({ game, shareUrl }: GameResultProps) {
       )}
       {game && (
         <div className="w-full flex flex-col gap-1 font-space">
-          <p className="w-full text-left text-2xl font-spaceBold">
+          <p className="w-full text-left text-2xl py-1 font-spaceBold">
             Framedl {game.date}
           </p>
           <p className="w-full text-left text-xl">
             {game.status === "WON" ? "You won! 🎉" : "Better luck next time!"}
           </p>
-          <p className="w-full text-left text-slate-600">
+          <p className="w-full text-left text-slate-600 leading-snug">
             {game.status === "WON" ? (
               <span>
-                You guessed the word in {game.guesses.length}{" "}
-                {game.guesses.length === 1 ? "guess" : "guesses"}
+                You found the word in {game.guesses.length}{" "}
+                {game.guesses.length === 1 ? "attempt" : "attempts"}
               </span>
             ) : (
               <span>
@@ -90,18 +90,18 @@ export default function GameResult({ game, shareUrl }: GameResultProps) {
         </div>
       )}
       {game && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           {game.guesses.map((guess, i) => (
-            <div key={i} className="flex gap-3">
+            <div key={i} className="flex gap-1">
               {guess.characters.map((letter, j) => (
                 <div
                   key={j}
-                  className={`w-12 h-12 flex items-center justify-center rounded font-bold text-lg ${
+                  className={`w-12 h-12 flex items-center justify-center rounded font-bold text-2xl ${
                     letter.status === "CORRECT"
                       ? "bg-green-600 text-white"
                       : letter.status === "WRONG_POSITION"
                       ? "bg-orange-600 text-white"
-                      : "bg-white text-primary-900"
+                      : "bg-primary-950/40 text-white"
                   }`}
                 >
                   {letter.character.toUpperCase()}
