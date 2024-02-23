@@ -12,9 +12,12 @@ export function signUrl(url: string): string {
   return signature.sign(url);
 }
 
-export function verifySignedUrl(url: string): string {
+export function verifySignedUrl(url: string, forceVerify?: boolean): string {
   console.log("VERIFYING", url);
   // TODO - find a fix for this
+  if (forceVerify) {
+    return signature.verify(url);
+  }
   return url;
   // return signature.verify(url);
 }

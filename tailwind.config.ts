@@ -27,6 +27,11 @@ const config: Config = {
       green: { 600: "green" },
     },
     extend: {
+      fontFamily: {
+        space: ["SpaceGrotesk-Regular", "sans-serif"],
+        spaceBold: ["SpaceGrotesk-Bold", "sans-serif"],
+        inter: ["Inter", "sans-serif"],
+      },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic":

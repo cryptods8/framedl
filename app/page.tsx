@@ -11,7 +11,7 @@ import {
 } from "frames.js/next/server";
 import Link from "next/link";
 
-import { signUrl } from "./utils";
+import { signUrl, verifySignedUrl } from "./utils";
 import { baseUrl, hubHttpUrl } from "./constants";
 import { gameService, GuessedGame } from "./game/game-service";
 import GameResult from "./ui/game-result";
@@ -43,6 +43,37 @@ interface GameFrame {
   status: "initial" | "in_progress" | "invalid" | "finished";
   imageParams: GameImageParams;
   game?: GuessedGame;
+}
+
+function isUrlSigned(
+  searchParams:
+    | {
+        [key: string]: string | string[] | undefined;
+      }
+    | undefined
+) {
+  const params = new URLSearchParams();
+  for (const key in searchParams) {
+    const value = searchParams[key];
+    if (value) {
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          params.append(key, v);
+        }
+      } else {
+        params.append(key, value as string);
+      }
+    }
+  }
+  const paramsString = params.toString();
+  const fullUrl = `${baseUrl}${paramsString ? `?${paramsString}` : ""}`;
+  try {
+    verifySignedUrl(fullUrl, true);
+    return true;
+  } catch (e) {
+    // ignore
+  }
+  return false;
 }
 
 async function nextFrame(
@@ -165,17 +196,18 @@ export default async function Home({ searchParams }: NextServerPageProps) {
     ? "Guess"
     : "Start";
 
-  const gameById = searchParams?.id
-    ? await gameService.load(searchParams.id as string)
+  const gameIdParam = searchParams?.id as string;
+  const gameById = gameIdParam
+    ? await gameService.loadPublic(gameIdParam, isUrlSigned(searchParams))
     : null;
 
-  if (!imageParams.gameId && searchParams?.id) {
-    imageParams.gameId = searchParams.id as string;
+  if (!imageParams.gameId && gameIdParam) {
+    imageParams.gameId = gameIdParam;
     imageParams.share = true;
   }
 
   return (
-    <div>
+    <div className="w-full min-h-dvh bg-gradient-to-b from-slate-300 to-slate-200 flex flex-col items-center justify-center p-8 font-inter">
       <FrameContainer
         pathname="/"
         postUrl="/frames"
@@ -186,13 +218,19 @@ export default async function Home({ searchParams }: NextServerPageProps) {
         {isFinished || !fid ? null : <FrameInput text="Make your guess..." />}
         <FrameButton>{buttonLabel}</FrameButton>
         {isFinished && game ? (
-          <FrameButton action="link" target={`${baseUrl}/?id=${game.id}`}>
+          <FrameButton
+            action="link"
+            target={signUrl(`${baseUrl}?id=${game.id}`)}
+          >
             Share
           </FrameButton>
         ) : null}
       </FrameContainer>
       <div className="flex flex-col p-6 w-full justify-center items-center">
-        {gameById && <GameResult game={gameById} shareUrl={baseUrl} />}
+        <GameResult
+          game={gameById}
+          shareUrl={`${baseUrl}${gameById ? `?id=${gameById.id}` : ""}`}
+        />
         <div className="text-center mt-8 text-sm text-slate-600">
           Framedl made by{" "}
           <Link href="https://warpcast.com/ds8" className="underline">

@@ -34,9 +34,18 @@ export interface GuessedGame extends Omit<Game, "guesses"> {
   word: string;
 }
 
+export interface PublicGuessedGame {
+  id: string;
+  date: string;
+  guesses: Guess[];
+  status: "IN_PROGRESS" | "WON" | "LOST";
+  word?: string;
+}
+
 export interface GameService {
   loadOrCreate(fid: number, userData?: UserData): Promise<GuessedGame>;
   load(id: string): Promise<GuessedGame | null>;
+  loadPublic(id: string, personal: boolean): Promise<PublicGuessedGame | null>;
   guess(game: GuessedGame, guess: string): Promise<GuessedGame>;
   isValidGuess(guess: string): boolean;
   validateGuess(
@@ -188,6 +197,32 @@ export class GameServiceImpl implements GameService {
       return null;
     }
     return this.toGuessedGame(game, game.date);
+  }
+
+  async loadPublic(
+    id: string,
+    personal: boolean
+  ): Promise<PublicGuessedGame | null> {
+    const game = await this.gameRepository.loadById(id);
+    if (!game) {
+      return null;
+    }
+    const guessedGame = this.toGuessedGame(game, game.date);
+    if (personal) {
+      return guessedGame;
+    }
+    return {
+      id: game.id,
+      date: game.date,
+      guesses: guessedGame.guesses.map((g) => {
+        return {
+          characters: g.characters.map((c) => {
+            return { status: c.status, character: "" };
+          }),
+        };
+      }),
+      status: guessedGame.status,
+    };
   }
 
   async guess(guessedGame: GuessedGame, guess: string): Promise<GuessedGame> {

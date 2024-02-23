@@ -24,6 +24,21 @@ body {
   width: 100%;
 }
 
+@font-face {
+  font-family: "SpaceGrotesk-Bold";
+  src: url("../public/SpaceGrotesk-Bold.ttf");
+}
+
+@font-face {
+  font-family: "SpaceGrotesk-Regular";
+  src: url("../public/SpaceGrotesk-Regular.ttf");
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("../public/Inter-Regular.ttf");
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
