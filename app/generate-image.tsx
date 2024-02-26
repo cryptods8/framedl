@@ -5,6 +5,7 @@ import satori, { SatoriOptions, Font } from "satori";
 import sharp from "sharp";
 
 import { GuessedGame } from "./game/game-service";
+import { UserStats, GameResult } from "./game/game-repository";
 import { loadEmoji, getIconCode } from "./twemoji";
 
 function readFont(name: string) {
@@ -128,9 +129,177 @@ function determineGameMessage(
   return "Keep guessing...";
 }
 
+interface UserStatsPanelProps {
+  stats: UserStats;
+  currentGuessCount?: number;
+}
+
+function StatLabel(props: { label: string }) {
+  return (
+    <div
+      tw="flex flex-wrap text-3xl"
+      style={{ color: "rgba(31, 21, 55, 0.54)" }}
+    >
+      {props.label}
+    </div>
+  );
+}
+
+function StatValue(props: { value: string }) {
+  return <div tw="flex flex-1">{props.value}</div>;
+}
+
+function StatItem(props: { label: string; value: string }) {
+  return (
+    <div
+      tw="flex flex-col flex-1 items-center text-center flex-wrap"
+      style={{ gap: "0.5rem" }}
+    >
+      <div tw="flex w-full justify-center" style={{ fontWeight: 500 }}>
+        {props.value}
+      </div>
+      <div tw="flex w-full justify-center">
+        <StatLabel label={props.label} />
+      </div>
+    </div>
+  );
+}
+
+function StatGuessDistributionItem(props: {
+  guessCount: number;
+  amount: number;
+  pctg: number;
+  current: boolean;
+}) {
+  const { guessCount, amount, pctg, current } = props;
+  return (
+    <div tw="flex w-full text-3xl items-center">
+      <div tw="flex w-8">{guessCount}</div>
+      <div tw="flex flex-1">
+        <div
+          tw="flex text-white rounded px-2 py-1"
+          style={{
+            minWidth: `${pctg}%`,
+            backgroundColor: current ? "green" : "rgba(31, 21, 55, 0.24)",
+          }}
+        >
+          {amount}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const LAST_X_CELL_W = 52;
+const LAST_X_CELL_H = 52;
+
+// TODO this will display the latest stats always
+function UserStatsPanel(props: UserStatsPanelProps) {
+  const { stats, currentGuessCount } = props;
+  const {
+    totalGames,
+    totalWins,
+    totalLosses,
+    currentStreak,
+    maxStreak,
+    winGuessCounts,
+    last30,
+  } = stats;
+
+  // generate last 7
+  const last30Map = last30.reduce((acc, g) => {
+    acc[g.date] = g;
+    return acc;
+  }, {} as { [key: string]: GameResult });
+  const last7 = [];
+  const startDate = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const currentDate = new Date(startDate.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateKey = currentDate.toISOString().split("T")[0]!;
+    const result = last30Map[dateKey];
+    last7.push(
+      <div
+        key={i}
+        tw={`flex rounded items-center justify-center text-white text-4xl`}
+        style={{
+          fontWeight: 500,
+          width: LAST_X_CELL_W,
+          height: LAST_X_CELL_H,
+          backgroundColor: result
+            ? result.won
+              ? "green"
+              : "red"
+            : "rgba(31, 21, 55, 0.24)",
+        }}
+      >
+        {result ? (result.won ? result.guessCount : "X") : ""}
+      </div>
+    );
+  }
+  // guess distribution
+  const distribution = [];
+  const maxWinGuessCount = Object.keys(winGuessCounts).reduce(
+    (acc, key) => Math.max(acc, winGuessCounts[parseInt(key, 10)] || 0),
+    0
+  );
+  for (let i = 1; i <= 6; i++) {
+    const amount = winGuessCounts[i] || 0;
+    const pctg = maxWinGuessCount > 0 ? (100 * amount) / maxWinGuessCount : 0;
+    distribution.push(
+      <StatGuessDistributionItem
+        key={i}
+        guessCount={i}
+        amount={amount}
+        pctg={pctg}
+        current={i === currentGuessCount}
+      />
+    );
+  }
+  //
+
+  const totalFinished = totalWins + totalLosses;
+  const winPctg =
+    totalFinished > 0 ? ((100 * totalWins) / totalFinished).toFixed(0) : "N/A";
+  return (
+    <div
+      tw="flex flex-col w-full text-5xl"
+      style={{
+        fontFamily: "Inter",
+        color: "rgba(31, 21, 55, 0.87)",
+        borderColor: "rgba(31, 21, 55, 0.2)",
+      }}
+    >
+      <div
+        tw="flex flex-row flex-wrap border-t py-8"
+        style={{ gap: "1rem", borderColor: "rgba(33, 21, 55, 0.2)" }}
+      >
+        <StatItem label="Played" value={`${totalGames}`} />
+        <StatItem label="Win %" value={winPctg} />
+        <StatItem label="Current Streak" value={`${currentStreak}`} />
+        <StatItem label="Max Streak" value={`${maxStreak}`} />
+      </div>
+      <div
+        tw="flex flex-row w-full items-center justify-between border-t pt-8 px-4"
+        style={{ gap: "1rem", borderColor: "rgba(33, 21, 55, 0.2)" }}
+      >
+        <div tw="flex">
+          <StatLabel label="Last 7" />
+        </div>
+        <div tw="flex flex-row items-center" style={{ gap: "0.5rem" }}>
+          {last7}
+        </div>
+      </div>
+      {/* <div tw="flex flex-col w-full" style={{ gap: "0.5rem" }}>
+        {distribution}
+      </div> */}
+    </div>
+  );
+}
+
 export interface GenerateImageOptions {
   overlayMessage?: string | null;
   share?: boolean;
+  userStats?: UserStats;
 }
 
 export async function generateImage(
@@ -138,7 +307,7 @@ export async function generateImage(
   options?: GenerateImageOptions
 ) {
   const { guesses, allGuessedCharacters } = game || { guesses: [] };
-  const { overlayMessage, share } = options || {};
+  const { overlayMessage, share, userStats } = options || {};
 
   const rows: ReactNode[] = [];
   for (let i = 0; i < MAX_GUESSES; i++) {
@@ -163,7 +332,7 @@ export async function generateImage(
         } else {
           color = "white";
           borderColor = "transparent";
-          backgroundColor = "rgba(31, 21, 55, 0.42)";
+          backgroundColor = share ? "rgba(31, 21, 55, 0.24)" : "rgba(31, 21, 55, 0.42)";
         }
       }
       cells.push(
@@ -254,7 +423,7 @@ export async function generateImage(
           {rows}
         </div>
         <div
-          tw="flex flex-col flex-1 py-20 px-8 border-l"
+          tw="flex flex-col flex-1 pt-20 px-8 border-l"
           style={{
             gap: "3rem",
             borderColor: "rgba(31, 21, 55, 0.2)",
@@ -308,11 +477,24 @@ export async function generateImage(
               </div>
             ) : null}
           </div>
-          <div
-            tw="flex flex-col items-center justify-center"
-            style={{ gap: "0.5rem" }}
-          >
-            {share ? null : keyboardRows}
+          <div tw="flex flex-col items-center justify-center pb-12">
+            {share ? null : (game?.status === "WON" ||
+                game?.status === "LOST") &&
+              userStats ? (
+              <UserStatsPanel
+                stats={userStats}
+                currentGuessCount={
+                  game.status === "WON" ? game.guesses.length : undefined
+                }
+              />
+            ) : (
+              <div
+                tw="flex flex-col items-center justify-center pb-8"
+                style={{ gap: "0.5rem" }}
+              >
+                {keyboardRows}
+              </div>
+            )}
           </div>
         </div>
       </div>

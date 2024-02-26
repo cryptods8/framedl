@@ -3,6 +3,8 @@ import {
   GameRepositoryImpl,
   Game,
   UserData,
+  UserStats,
+  UserStatsSave,
 } from "./game-repository";
 import answers from "../words/answer-words";
 import allWords from "../words/all-words";
@@ -42,20 +44,21 @@ export interface PublicGuessedGame {
   word?: string;
 }
 
+export type GuessValidationStatus =
+  | "VALID"
+  | "INVALID_EMPTY"
+  | "INVALID_SIZE"
+  | "INVALID_FORMAT"
+  | "INVALID_WORD";
+
 export interface GameService {
   loadOrCreate(fid: number, userData?: UserData): Promise<GuessedGame>;
   load(id: string): Promise<GuessedGame | null>;
   loadPublic(id: string, personal: boolean): Promise<PublicGuessedGame | null>;
   guess(game: GuessedGame, guess: string): Promise<GuessedGame>;
   isValidGuess(guess: string): boolean;
-  validateGuess(
-    guess: string | null | undefined
-  ):
-    | "VALID"
-    | "INVALID_EMPTY"
-    | "INVALID_SIZE"
-    | "INVALID_FORMAT"
-    | "INVALID_WORD";
+  validateGuess(guess: string | null | undefined): GuessValidationStatus;
+  loadStats(fid: number): Promise<UserStats | null>;
 }
 
 const GUESS_PATTERN = /^[A-Za-z]{5}$/;
@@ -150,23 +153,27 @@ export class GameServiceImpl implements GameService {
         (acc, c) => acc && c.status === "CORRECT",
         true
       );
-
+    const status = won
+      ? "WON"
+      : game.guesses.length >= MAX_GUESSES
+      ? "LOST"
+      : "IN_PROGRESS";
     return {
       ...game,
       originalGuesses: game.guesses,
       guesses,
       allGuessedCharacters,
-      status: won
-        ? "WON"
-        : game.guesses.length >= MAX_GUESSES
-        ? "LOST"
-        : "IN_PROGRESS",
+      status,
       word,
     };
   }
 
+  private getDayString(date: Date): string {
+    return date.toISOString().split("T")[0]!;
+  }
+
   async loadOrCreate(fid: number, userData?: UserData): Promise<GuessedGame> {
-    const today = new Date().toISOString().split("T")[0]!;
+    const today = this.getDayString(new Date());
     const game = await this.gameRepository.loadByFidAndDate(fid, today);
     if (!game) {
       const newGame = {
@@ -225,6 +232,72 @@ export class GameServiceImpl implements GameService {
     };
   }
 
+  private async loadOrCreateStats(game: GuessedGame): Promise<UserStatsSave> {
+    const stats = await this.gameRepository.loadStatsByFid(game.fid);
+    if (stats) {
+      return stats;
+    }
+    const allGames = await this.gameRepository.loadAllByFid(game.fid);
+    const prevGames = allGames
+      .map((g) => this.toGuessedGame(g, g.date))
+      .filter(
+        (g) => (g.status === "LOST" || g.status === "WON") && g.date < game.date
+      );
+    const emptyStats: UserStatsSave = {
+      fid: game.fid,
+      totalGames: 0,
+      totalWins: 0,
+      totalLosses: 0,
+      maxStreak: 0,
+      currentStreak: 0,
+      winGuessCounts: {},
+      last30: [],
+    };
+    return prevGames.reduce((acc, g) => this.updateStats(acc, g), emptyStats);
+  }
+
+  private isPrevGameDate(currentDate: string, prevDate: string): boolean {
+    const prev = new Date(prevDate);
+    const next = new Date(prev.getTime() + 1000 * 60 * 60 * 24);
+    return this.getDayString(next) === currentDate;
+  }
+
+  private updateStats(
+    stats: UserStatsSave,
+    guessedGame: GuessedGame
+  ): UserStatsSave {
+    const newStats = { ...stats };
+    if (guessedGame.status === "WON") {
+      newStats.totalWins++;
+      const guessCount = guessedGame.guesses.length;
+      newStats.winGuessCounts[guessCount] =
+        (newStats.winGuessCounts[guessCount] || 0) + 1;
+      if (
+        stats.lastGameWonDate &&
+        this.isPrevGameDate(guessedGame.date, stats.lastGameWonDate)
+      ) {
+        newStats.currentStreak++;
+      } else {
+        newStats.currentStreak = 1;
+      }
+      newStats.lastGameWonDate = guessedGame.date;
+      newStats.maxStreak = Math.max(newStats.maxStreak, newStats.currentStreak);
+    } else if (guessedGame.status === "LOST") {
+      newStats.totalLosses++;
+      newStats.currentStreak = 0;
+    }
+    newStats.totalGames++;
+    newStats.last30.push({
+      won: guessedGame.status === "WON",
+      guessCount: guessedGame.guesses.length,
+      date: guessedGame.date,
+    });
+    if (newStats.last30.length > 30) {
+      newStats.last30.shift();
+    }
+    return newStats;
+  }
+
   async guess(guessedGame: GuessedGame, guess: string): Promise<GuessedGame> {
     if (!this.isValidGuess(guess)) {
       throw new Error("Guess must be 5 letters");
@@ -239,7 +312,18 @@ export class GameServiceImpl implements GameService {
     const formattedGuess = guess.trim().toLowerCase();
     game.guesses.push(formattedGuess);
     const id = await this.gameRepository.save(game);
-    return this.toGuessedGame({ ...game, id }, game.date);
+    const resultGame = this.toGuessedGame({ ...game, id }, game.date);
+    if (resultGame.status === "LOST" || resultGame.status === "WON") {
+      // update stats
+      const stats = await this.loadOrCreateStats(guessedGame);
+      const newStats = this.updateStats(stats, resultGame);
+      await this.gameRepository.saveStats(newStats);
+    }
+    return resultGame;
+  }
+
+  async loadStats(fid: number): Promise<UserStats | null> {
+    return this.gameRepository.loadStatsByFid(fid);
   }
 
   validateGuess(guess: String | null | undefined) {

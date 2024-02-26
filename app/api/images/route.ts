@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 
 import { generateImage } from "../../generate-image";
-import { gameService } from "../../game/game-service";
+import { gameService, GuessedGame } from "../../game/game-service";
 import { verifySignedUrl } from "../../utils";
 import { baseUrl } from "../../constants";
 
@@ -27,6 +27,10 @@ function verifyUrl(req: NextRequest) {
   return new URL(verifySignedUrl(url));
 }
 
+function isGameFinished(game: GuessedGame) {
+  return game.status === "LOST" || game.status === "WON";
+}
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -40,6 +44,11 @@ export async function GET(req: NextRequest) {
     const svg = await generateImage(game, {
       overlayMessage: msg,
       share: shr === "1",
+      userStats:
+        (game &&
+          isGameFinished(game) &&
+          (await gameService.loadStats(game.fid))) ||
+        undefined,
     });
     return renderImageToRes(svg);
   } catch (e) {
