@@ -332,7 +332,9 @@ export async function generateImage(
         } else {
           color = "white";
           borderColor = "transparent";
-          backgroundColor = share ? "rgba(31, 21, 55, 0.24)" : "rgba(31, 21, 55, 0.42)";
+          backgroundColor = share
+            ? "rgba(31, 21, 55, 0.24)"
+            : "rgba(31, 21, 55, 0.42)";
         }
       }
       cells.push(
@@ -478,9 +480,8 @@ export async function generateImage(
             ) : null}
           </div>
           <div tw="flex flex-col items-center justify-center pb-12">
-            {share ? null : (game?.status === "WON" ||
-                game?.status === "LOST") &&
-              userStats ? (
+            {(game?.status === "WON" || game?.status === "LOST") &&
+            userStats ? (
               <UserStatsPanel
                 stats={userStats}
                 currentGuessCount={
@@ -488,12 +489,14 @@ export async function generateImage(
                 }
               />
             ) : (
-              <div
-                tw="flex flex-col items-center justify-center pb-8"
-                style={{ gap: "0.5rem" }}
-              >
-                {keyboardRows}
-              </div>
+              !share && (
+                <div
+                  tw="flex flex-col items-center justify-center pb-8"
+                  style={{ gap: "0.5rem" }}
+                >
+                  {keyboardRows}
+                </div>
+              )
             )}
           </div>
         </div>
