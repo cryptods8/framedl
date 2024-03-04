@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import sharp from "sharp";
+import { NextRequest } from "next/server";
 
 import { generateImage } from "../../generate-image";
 import { gameService, GuessedGame } from "../../game/game-service";
@@ -12,19 +11,16 @@ function getRequestUrl(req: NextRequest) {
   return `${baseUrl}${url.pathname}${search ? `?${search}` : ""}`;
 }
 
-async function renderImageToRes(svg: string): Promise<NextResponse> {
-  const pngBuffer = await sharp(Buffer.from(svg)).toFormat("png").toBuffer();
-
-  const res = new NextResponse(pngBuffer);
-  // Set the content type to PNG and send the response
-  res.headers.set("Content-Type", "image/png");
-  res.headers.set("Cache-Control", "max-age=10");
-  return res;
-}
-
 function verifyUrl(req: NextRequest) {
   const url = getRequestUrl(req);
-  return new URL(verifySignedUrl(url));
+  let verifiedUrl = url;
+  try {
+    verifiedUrl = verifySignedUrl(url);
+  } catch (e) {
+    // TODO remove when this stops happening
+    console.error("Failed to verify url", url, (e as any).message);
+  }
+  return new URL(verifiedUrl);
 }
 
 function isGameFinished(game: GuessedGame) {
@@ -41,7 +37,7 @@ export async function GET(req: NextRequest) {
     const msg = params.get("msg");
     const shr = params.get("shr");
     const game = gid ? await gameService.load(gid) : null;
-    const svg = await generateImage(game, {
+    return generateImage(game, {
       overlayMessage: msg,
       share: shr === "1",
       userStats:
@@ -50,12 +46,10 @@ export async function GET(req: NextRequest) {
           (await gameService.loadStats(game.fid))) ||
         undefined,
     });
-    return renderImageToRes(svg);
   } catch (e) {
     console.error(e);
-    const svg = await generateImage(undefined, {
+    return await generateImage(undefined, {
       overlayMessage: "Error occured: " + (e as any).message,
     });
-    return renderImageToRes(svg);
   }
 }

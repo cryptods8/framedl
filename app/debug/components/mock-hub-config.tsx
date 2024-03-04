@@ -1,12 +1,14 @@
-import { FrameActionHubContext } from "frames.js";
-import React, { useState } from "react";
+import { type FrameActionHubContext } from "frames.js";
+import React from "react";
 
 export function MockHubConfig({
   hubContext,
   setHubContext,
 }: {
-  hubContext: FrameActionHubContext;
-  setHubContext: React.Dispatch<React.SetStateAction<FrameActionHubContext>>;
+  hubContext: Partial<FrameActionHubContext>;
+  setHubContext: React.Dispatch<
+    React.SetStateAction<Partial<FrameActionHubContext>>
+  >;
 }) {
   const isDev = process.env.NODE_ENV === "development";
 

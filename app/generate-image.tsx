@@ -1,12 +1,11 @@
 import fs from "fs";
 import path from "path";
 import { ReactNode } from "react";
-import satori, { SatoriOptions, Font } from "satori";
-import sharp from "sharp";
+import { SatoriOptions, Font } from "satori";
+import { ImageResponse } from "@vercel/og";
 
 import { GuessedGame } from "./game/game-service";
 import { UserStats, GameResult } from "./game/game-repository";
-import { loadEmoji, getIconCode } from "./twemoji";
 
 function readFont(name: string) {
   return fs.readFileSync(path.resolve(`./public/${name}`));
@@ -51,36 +50,22 @@ export const fonts: Font[] = [
   },
 ];
 
-const emojiCache: Record<string, string> = {};
-
 export const options: SatoriOptions = {
   width: 1200,
   height: 628,
   fonts,
-  loadAdditionalAsset: async (_code: string, _segment: string) => {
-    if (_code === "emoji") {
-      const emojiCode = getIconCode(_segment);
-      if (emojiCache[emojiCode]) {
-        return emojiCache[emojiCode]!;
-      }
-      const svg = await loadEmoji("twemoji", getIconCode(_segment));
-      const pngData = await sharp(Buffer.from(svg)).toFormat("png").toBuffer();
-      const dataUrl = `data:image/png;base64,${pngData.toString("base64")}`;
-      emojiCache[emojiCode] = dataUrl;
-      return dataUrl;
-    }
-    return _code;
-  },
 };
 
-async function renderSvg(node: ReactNode) {
-  return await satori(
-    <div
-      tw="flex items-stretch w-full h-full bg-white"
-      style={{ fontFamily: "Inter" }}
-    >
-      {node}
-    </div>,
+async function toImage(node: ReactNode) {
+  return new ImageResponse(
+    (
+      <div
+        tw="flex items-stretch w-full h-full bg-white"
+        style={{ fontFamily: "Inter" }}
+      >
+        {node}
+      </div>
+    ),
     options
   );
 }
@@ -143,10 +128,6 @@ function StatLabel(props: { label: string }) {
       {props.label}
     </div>
   );
-}
-
-function StatValue(props: { value: string }) {
-  return <div tw="flex flex-1">{props.value}</div>;
 }
 
 function StatItem(props: { label: string; value: string }) {
@@ -415,7 +396,7 @@ export async function generateImage(
 
   const gameMessage = determineGameMessage(game, share);
 
-  return renderSvg(
+  return toImage(
     <div tw="flex w-full h-full items-center justify-center relative">
       <div tw="flex w-full h-full items-stretch justify-between">
         <div

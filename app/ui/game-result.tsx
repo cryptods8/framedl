@@ -1,53 +1,21 @@
 "use client";
-import { PublicGuessedGame } from "../game/game-service";
+import { PublicGuessedGame, buildShareableResult } from "../game/game-service";
 
 export interface GameResultProps {
   game?: PublicGuessedGame | null;
   shareUrl?: string;
 }
 
-function buildResultText(game: PublicGuessedGame) {
-  return game.guesses
-    .map((guess, i) => {
-      return guess.characters
-        .map((letter, j) => {
-          return letter.status === "CORRECT"
-            ? "🟩"
-            : letter.status === "WRONG_POSITION"
-            ? "🟨"
-            : "⬜";
-        })
-        .join("");
-    })
-    .join("\n");
-}
-
-function buildShareableResult(
-  game: PublicGuessedGame | null | undefined,
-  shareUrl: string | undefined
-) {
-  const url = shareUrl || window.location.href;
-  if (!game) {
-    return {
-      title: "Framedl",
-      text: `Play Framedl!\n\n${url}`,
-    };
-  }
-  const guessCount = game.status === "WON" ? `${game.guesses.length}` : "X";
-  const title = `Framedl ${game.date} ${guessCount}/6`;
-  const resultText = buildResultText(game);
-  const text = `${title}\n\n${resultText}\n\n${url}`;
-  return { title, text };
-}
-
 export default function GameResult({ game, shareUrl }: GameResultProps) {
   const handleShare = () => {
-    const { title, text } = buildShareableResult(game, shareUrl);
+    const url = shareUrl || window.location.href;
+    const { title, text } = buildShareableResult(game);
     const { navigator } = window;
+    const fullText = `${title}\n\n${text}\n\n${url}`;
     if (navigator?.share) {
-      navigator.share({ title, text });
+      navigator.share({ title, text: fullText });
     } else if (navigator?.clipboard) {
-      navigator.clipboard.writeText(text);
+      navigator.clipboard.writeText(fullText);
       alert("Copied to clipboard");
     } else {
       alert("Sharing is not supported on this device!");

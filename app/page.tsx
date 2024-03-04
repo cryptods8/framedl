@@ -12,8 +12,13 @@ import {
 import Link from "next/link";
 
 import { signUrl, verifySignedUrl } from "./utils";
+import { getClientType } from "./get-client-type";
 import { baseUrl, hubHttpUrl } from "./constants";
-import { gameService, GuessedGame } from "./game/game-service";
+import {
+  gameService,
+  buildShareableResult,
+  GuessedGame,
+} from "./game/game-service";
 import GameResult from "./ui/game-result";
 
 type GameStatus = "initial" | "in_progress" | "invalid" | "finished";
@@ -68,7 +73,7 @@ function isUrlSigned(
   const paramsString = params.toString();
   const fullUrl = `${baseUrl}${paramsString ? `?${paramsString}` : ""}`;
   try {
-    verifySignedUrl(fullUrl, true);
+    verifySignedUrl(fullUrl);
     return true;
   } catch (e) {
     // ignore
@@ -206,6 +211,42 @@ export default async function Home({ searchParams }: NextServerPageProps) {
     imageParams.share = true;
   }
 
+  const redirects = [];
+  if (isFinished && game) {
+    const clientType = previousFrame.postBody
+      ? await getClientType(previousFrame.postBody)
+      : null;
+    const url = `${baseUrl}?id=${game.id}`;
+    redirects.push({
+      label: clientType === "WARPCAST" ? "Results" : "Share",
+      url: signUrl(url),
+    });
+    if (clientType === "WARPCAST") {
+      const { title, text } = buildShareableResult(game);
+      const params = new URLSearchParams();
+      params.set("text", `${title}\n\n${text}`);
+      params.set("embeds[]", url);
+      const shareUrl = `https://warpcast.com/~/compose?${params.toString()}`;
+      redirects.push({ label: "Share", url: shareUrl });
+    }
+  }
+
+  const elements = [];
+  elements.push(
+    <FrameImage key="image" src={buildImageUrl(imageParams, fid)} />
+  );
+  if (fid && !isFinished) {
+    elements.push(<FrameInput key="input" text="Make your guess..." />);
+  }
+  elements.push(<FrameButton key="button">{buttonLabel}</FrameButton>);
+  redirects.forEach((r, i) =>
+    elements.push(
+      <FrameButton key={i} action="link" target={r.url}>
+        {r.label}
+      </FrameButton>
+    )
+  );
+
   return (
     <div className="w-full min-h-dvh bg-gradient-to-b from-slate-300 to-slate-200 flex flex-col items-center justify-center p-8 font-inter">
       <FrameContainer
@@ -214,17 +255,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
         state={{ ...state, status }}
         previousFrame={previousFrame}
       >
-        <FrameImage src={buildImageUrl(imageParams, fid)} />
-        {isFinished || !fid ? null : <FrameInput text="Make your guess..." />}
-        <FrameButton>{buttonLabel}</FrameButton>
-        {isFinished && game ? (
-          <FrameButton
-            action="link"
-            target={signUrl(`${baseUrl}?id=${game.id}`)}
-          >
-            Share
-          </FrameButton>
-        ) : null}
+        {elements}
       </FrameContainer>
       <div className="flex flex-col p-6 w-full justify-center items-center">
         <GameResult
