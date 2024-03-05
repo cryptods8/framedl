@@ -54,6 +54,7 @@ export type GuessValidationStatus =
 export interface GameService {
   loadOrCreate(fid: number, userData?: UserData): Promise<GuessedGame>;
   load(id: string): Promise<GuessedGame | null>;
+  loadAllByFid(fid: number): Promise<GuessedGame[]>;
   loadPublic(id: string, personal: boolean): Promise<PublicGuessedGame | null>;
   guess(game: GuessedGame, guess: string): Promise<GuessedGame>;
   isValidGuess(guess: string): boolean;
@@ -256,6 +257,11 @@ export class GameServiceImpl implements GameService {
     return prevGames.reduce((acc, g) => this.updateStats(acc, g), emptyStats);
   }
 
+  async loadAllByFid(fid: number): Promise<GuessedGame[]> {
+    const games = await this.gameRepository.loadAllByFid(fid);
+    return games.map((g) => this.toGuessedGame(g, g.date));
+  }
+
   private isPrevGameDate(currentDate: string, prevDate: string): boolean {
     const prev = new Date(prevDate);
     const next = new Date(prev.getTime() + 1000 * 60 * 60 * 24);
@@ -349,34 +355,3 @@ export class GameServiceImpl implements GameService {
 }
 
 export const gameService: GameService = new GameServiceImpl();
-
-function buildResultText(game: PublicGuessedGame) {
-  return game.guesses
-    .map((guess, i) => {
-      return guess.characters
-        .map((letter, j) => {
-          return letter.status === "CORRECT"
-            ? "🟩"
-            : letter.status === "WRONG_POSITION"
-            ? "🟨"
-            : "⬜";
-        })
-        .join("");
-    })
-    .join("\n");
-}
-
-export function buildShareableResult(
-  game: PublicGuessedGame | null | undefined
-) {
-  if (!game) {
-    return {
-      title: "Framedl",
-      text: `Play Framedl!`,
-    };
-  }
-  const guessCount = game.status === "WON" ? `${game.guesses.length}` : "X";
-  const title = `Framedl ${game.date} ${guessCount}/6`;
-  const text = buildResultText(game);
-  return { title, text };
-}

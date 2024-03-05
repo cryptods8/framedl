@@ -1,5 +1,6 @@
 "use client";
-import { PublicGuessedGame, buildShareableResult } from "../game/game-service";
+import { PublicGuessedGame } from "../game/game-service";
+import { buildShareableResult } from "../game/game-utils";
 
 export interface GameResultProps {
   game?: PublicGuessedGame | null;

@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 import { SatoriOptions, Font } from "satori";
 import { ImageResponse } from "@vercel/og";
 
-import { GuessedGame } from "./game/game-service";
+import { GuessedGame, GuessCharacter } from "./game/game-service";
 import { UserStats, GameResult } from "./game/game-repository";
 
 function readFont(name: string) {
@@ -56,7 +56,10 @@ export const options: SatoriOptions = {
   fonts,
 };
 
-async function toImage(node: ReactNode) {
+async function toImage(
+  node: ReactNode,
+  satoriOptions?: Partial<SatoriOptions>
+) {
   return new ImageResponse(
     (
       <div
@@ -66,7 +69,7 @@ async function toImage(node: ReactNode) {
         {node}
       </div>
     ),
-    options
+    { ...options, ...satoriOptions }
   );
 }
 
@@ -283,6 +286,40 @@ export interface GenerateImageOptions {
   userStats?: UserStats;
 }
 
+function getGuessCharacterColorStyle(
+  c: GuessCharacter | null | undefined,
+  withLetter: boolean
+) {
+  if (!c) {
+    return {
+      color: "rgba(31, 21, 55, 0.87)",
+      backgroundColor: "white",
+      borderColor: "rgba(31, 21, 55, 0.24)",
+    };
+  }
+  if (c.status === "CORRECT") {
+    return {
+      color: "white",
+      backgroundColor: "green",
+      borderColor: "green",
+    };
+  }
+  if (c.status === "WRONG_POSITION") {
+    return {
+      color: "white",
+      backgroundColor: "orange",
+      borderColor: "orange",
+    };
+  }
+  return {
+    color: "white",
+    borderColor: "transparent",
+    backgroundColor: withLetter
+      ? "rgba(31, 21, 55, 0.42)"
+      : "rgba(31, 21, 55, 0.24)",
+  };
+}
+
 export async function generateImage(
   game: GuessedGame | undefined | null,
   options?: GenerateImageOptions
@@ -297,27 +334,8 @@ export async function generateImage(
     for (let j = 0; j < 5; j++) {
       const letter = guess ? guess.characters[j] : undefined;
       let char = "";
-      let color = "rgba(31, 21, 55, 0.87)";
-      let backgroundColor = "white";
-      let borderColor = "rgba(31, 21, 55, 0.24)";
-      if (letter) {
-        char = letter.character;
-        if (letter.status === "CORRECT") {
-          color = "white";
-          backgroundColor = "green";
-          borderColor = "green";
-        } else if (letter.status === "WRONG_POSITION") {
-          color = "white";
-          backgroundColor = "orange";
-          borderColor = "orange";
-        } else {
-          color = "white";
-          borderColor = "transparent";
-          backgroundColor = share
-            ? "rgba(31, 21, 55, 0.24)"
-            : "rgba(31, 21, 55, 0.42)";
-        }
-      }
+      const { color, backgroundColor, borderColor } =
+        getGuessCharacterColorStyle(letter, !share);
       cells.push(
         <div
           key={j}
@@ -483,5 +501,90 @@ export async function generateImage(
         </div>
       </div>
     </div>
+  );
+}
+
+const CELL_SIZE = 34;
+const OUTER_PADDING = (1200 - 30 * CELL_SIZE) / 2;
+const CELL_PADDING = 4;
+
+function createGuessCharacterCell(
+  c: GuessCharacter | null | undefined,
+  key: string
+) {
+  const { backgroundColor } = c
+    ? getGuessCharacterColorStyle(c, false)
+    : { backgroundColor: "rgba(31, 21, 55, 0.04)" };
+  return (
+    <div
+      key={key}
+      tw="flex"
+      style={{
+        width: CELL_SIZE,
+        height: CELL_SIZE,
+        padding: CELL_PADDING,
+      }}
+    >
+      <div tw="flex w-full h-full" style={{ backgroundColor }} />
+    </div>
+  );
+}
+
+function generateSingleGameFingerprint(game: GuessedGame | null) {
+  const guesses = game?.guesses || [];
+  // if (guesses.length === 0) {
+  //   return [
+  //     <div key="0" tw="flex" style={{ width: CELL_SIZE, height: CELL_SIZE }} />,
+  //   ];
+  // }
+  const cells: ReactNode[] = [];
+  for (let i = 0; i < MAX_GUESSES; i++) {
+    const guess = guesses[i]; // - (MAX_GUESSES - guesses.length)];
+    for (let j = 0; j < 5; j++) {
+      const letter = guess ? guess.characters[j] : undefined;
+      // if (letter) {
+      cells.push(createGuessCharacterCell(letter, `f/${i}/${j}`));
+      // }
+    }
+  }
+  return cells;
+}
+
+const minDateStr = "2024-03-05";
+
+export async function generateFingerprint(games: GuessedGame[]) {
+  const sorted = games.sort((a, b) =>
+    a.date > b.date ? 1 : a.date === b.date ? 0 : -1
+  );
+  const last30 = sorted.slice(-30).reduce((acc, g) => {
+    acc[g.date] = g;
+    return acc;
+  }, {} as Record<string, GuessedGame>);
+
+  const lastGameDateStr = sorted[sorted.length - 1]?.date || minDateStr;
+  const lastDateStr =
+    minDateStr > lastGameDateStr ? minDateStr : lastGameDateStr;
+  const lastDate = new Date(lastDateStr);
+  const last30Games: (GuessedGame | null)[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const currentDate = new Date(lastDate.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateKey = currentDate.toISOString().split("T")[0]!;
+    last30Games.push(last30[dateKey] || null);
+  }
+
+  return toImage(
+    <div
+      tw="flex flex-col w-full h-full bg-white"
+      style={{ padding: OUTER_PADDING }}
+    >
+      <div tw="flex flex-col w-full h-full">
+        {last30Games.map((g, idx) => (
+          <div key={idx} tw="flex flex-row w-full justify-center">
+            {generateSingleGameFingerprint(g)}
+          </div>
+        ))}
+      </div>
+    </div>,
+    { height: 1200 }
   );
 }

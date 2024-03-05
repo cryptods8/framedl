@@ -14,11 +14,8 @@ import Link from "next/link";
 import { signUrl, verifySignedUrl, timeCall } from "./utils";
 import { getClientType } from "./get-client-type";
 import { baseUrl, hubHttpUrl } from "./constants";
-import {
-  gameService,
-  buildShareableResult,
-  GuessedGame,
-} from "./game/game-service";
+import { gameService, GuessedGame } from "./game/game-service";
+import { buildShareableResult } from "./game/game-utils";
 import GameResult from "./ui/game-result";
 
 type GameStatus = "initial" | "in_progress" | "invalid" | "finished";
