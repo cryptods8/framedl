@@ -11,7 +11,7 @@ import {
 } from "frames.js/next/server";
 import Link from "next/link";
 
-import { signUrl, verifySignedUrl } from "./utils";
+import { signUrl, verifySignedUrl, timeCall } from "./utils";
 import { getClientType } from "./get-client-type";
 import { baseUrl, hubHttpUrl } from "./constants";
 import {
@@ -174,23 +174,25 @@ function buildImageUrl(p: GameImageParams, fid?: number): string {
 
 // This is a react server component only
 export default async function Home({ searchParams }: NextServerPageProps) {
+  const start = Date.now();
   const previousFrame = getPreviousFrame<State>(searchParams);
 
   const [state] = useFramesReducer<State>(reducer, initialState, previousFrame);
 
-  const frameMessage = await getFrameMessage(previousFrame.postBody, {
-    fetchHubContext: state.status === "initial" || state.status === "finished",
-    hubHttpUrl,
-  });
+  const frameMessage = await timeCall("getFrameMessage", () =>
+    getFrameMessage(previousFrame.postBody, {
+      fetchHubContext:
+        state.status === "initial" || state.status === "finished",
+      hubHttpUrl,
+    })
+  );
 
   const fid = frameMessage?.requesterFid;
   const inputText =
     state.status !== "finished" ? frameMessage?.inputText : undefined;
 
-  const { game, imageParams, status } = await nextFrame(
-    fid,
-    inputText,
-    frameMessage?.requesterUserData || undefined
+  const { game, imageParams, status } = await timeCall("nextFrame", () =>
+    nextFrame(fid, inputText, frameMessage?.requesterUserData || undefined)
   );
 
   // then, when done, return next frame
@@ -214,7 +216,9 @@ export default async function Home({ searchParams }: NextServerPageProps) {
   const redirects = [];
   if (isFinished && game) {
     const clientType = previousFrame.postBody
-      ? await getClientType(previousFrame.postBody)
+      ? await timeCall("getClientType", () =>
+          getClientType(previousFrame.postBody!)
+        )
       : null;
     const url = `${baseUrl}?id=${game.id}`;
     redirects.push({
@@ -247,6 +251,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
     )
   );
 
+  console.log(`Time for Home (before return): ${Date.now() - start}ms`);
   return (
     <div className="w-full min-h-dvh bg-gradient-to-b from-slate-300 to-slate-200 flex flex-col items-center justify-center p-8 font-inter">
       <FrameContainer

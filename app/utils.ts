@@ -25,3 +25,10 @@ export function verifySignedUrl(url: string): string {
   // console.log("VERIFYING", url);
   return signature.verify(url);
 }
+
+export async function timeCall<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  const start = Date.now();
+  const result = await fn();
+  console.log(`Time for ${name}: ${Date.now() - start}ms`);
+  return result;
+}
