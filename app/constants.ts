@@ -4,7 +4,10 @@ const fallbackBaseUrl = isProduction
   : "http://localhost:3000";
 
 export const baseUrl =
-  process.env["BASE_URL"] || process.env["VERCEL_URL"] || fallbackBaseUrl;
+  process.env["NEXT_PUBLIC_HOST"] ||
+  process.env["BASE_URL"] ||
+  process.env["VERCEL_URL"] ||
+  fallbackBaseUrl;
 
 const fallbackHubHttpUrl = isProduction
   ? undefined
