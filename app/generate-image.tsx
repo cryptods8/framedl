@@ -333,7 +333,7 @@ export async function generateImage(
     const cells: ReactNode[] = [];
     for (let j = 0; j < 5; j++) {
       const letter = guess ? guess.characters[j] : undefined;
-      let char = "";
+      const char = letter ? letter.character : "";
       const { color, backgroundColor, borderColor } =
         getGuessCharacterColorStyle(letter, !share);
       cells.push(
