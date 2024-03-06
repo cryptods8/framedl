@@ -683,7 +683,7 @@ export async function generateLeaderboardImage(
         </div>
         <div
           tw="flex text-5xl p-12 text-white"
-          style={{ fontFamily: "SpaceGrotesk", fontWeight: 700 }}
+          style={{ fontFamily: "SpaceGrotesk", fontWeight: 700, color: primaryColor(0.16) }}
         >
           Framedl
         </div>
