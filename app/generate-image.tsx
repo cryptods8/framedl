@@ -4,8 +4,16 @@ import { ReactNode } from "react";
 import { SatoriOptions, Font } from "satori";
 import { ImageResponse } from "@vercel/og";
 
-import { GuessedGame, GuessCharacter } from "./game/game-service";
-import { UserStats, GameResult } from "./game/game-repository";
+import {
+  GuessedGame,
+  GuessCharacter,
+  PersonalLeaderboard,
+} from "./game/game-service";
+import {
+  UserStats,
+  GameResult,
+  LeaderboardEntry,
+} from "./game/game-repository";
 
 function readFont(name: string) {
   return fs.readFileSync(path.resolve(`./public/${name}`));
@@ -550,26 +558,37 @@ function generateSingleGameFingerprint(game: GuessedGame | null) {
   return cells;
 }
 
-const minDateStr = "2024-03-05";
+// TODO const MIN_DATE_STRING = "2024-03-05";
+const MIN_DATE_STRING = "2024-03-01";
 
-export async function generateFingerprint(games: GuessedGame[]) {
-  const sorted = games.sort((a, b) =>
-    a.date > b.date ? 1 : a.date === b.date ? 0 : -1
+function maxStr(a: string, b: string) {
+  return a > b ? a : b;
+}
+function minStr(a: string, b: string) {
+  return a < b ? a : b;
+}
+
+export async function generateFingerprint(
+  games: GuessedGame[],
+  dateStr: string | null | undefined
+) {
+  const lastGameDateStr = games.reduce(
+    (acc, g) => maxStr(acc, g.date),
+    MIN_DATE_STRING
   );
-  const last30 = sorted.slice(-30).reduce((acc, g) => {
+  const lastDateStr = dateStr
+    ? minStr(maxStr(dateStr, MIN_DATE_STRING), lastGameDateStr)
+    : lastGameDateStr;
+  const map = games.reduce((acc, g) => {
     acc[g.date] = g;
     return acc;
   }, {} as Record<string, GuessedGame>);
-
-  const lastGameDateStr = sorted[sorted.length - 1]?.date || minDateStr;
-  const lastDateStr =
-    minDateStr > lastGameDateStr ? minDateStr : lastGameDateStr;
   const lastDate = new Date(lastDateStr);
   const last30Games: (GuessedGame | null)[] = [];
   for (let i = 29; i >= 0; i--) {
     const currentDate = new Date(lastDate.getTime() - i * 24 * 60 * 60 * 1000);
     const dateKey = currentDate.toISOString().split("T")[0]!;
-    last30Games.push(last30[dateKey] || null);
+    last30Games.push(map[dateKey] || null);
   }
 
   return toImage(
@@ -586,5 +605,165 @@ export async function generateFingerprint(games: GuessedGame[]) {
       </div>
     </div>,
     { height: 1200 }
+  );
+}
+
+function primaryColor(opacity: number = 0.87) {
+  return `rgba(31, 21, 55, ${opacity})`;
+}
+
+interface PersonalLeaderboardEntry extends LeaderboardEntry {
+  pos?: string;
+  highlight: boolean;
+  avg: number;
+}
+
+function calculateAvg(entry: LeaderboardEntry) {
+  return entry.totalGamesWon > 0
+    ? entry.totalGamesWonGuesses / entry.totalGamesWon
+    : 0;
+}
+
+const MAX_ENTRIES = 8;
+
+export async function generateLeaderboardImage(
+  leaderboard: PersonalLeaderboard
+) {
+  const { entries, personalEntryIndex, personalEntry } = leaderboard;
+  const leaderboardEntries: (PersonalLeaderboardEntry | null)[] = [];
+  const personalEntryUnranked =
+    personalEntry &&
+    (personalEntryIndex == null || personalEntryIndex >= MAX_ENTRIES);
+  const maxEntries = Math.min(
+    entries.length,
+    personalEntryUnranked ? MAX_ENTRIES - 1 : MAX_ENTRIES
+  );
+  for (let i = 0; i < maxEntries; i++) {
+    const entry = entries[i]!;
+    leaderboardEntries.push({
+      pos: `${i + 1}`,
+      highlight: i === personalEntryIndex,
+      avg: calculateAvg(entry),
+      ...entry,
+    });
+  }
+  if (personalEntryUnranked) {
+    leaderboardEntries.push(null);
+    leaderboardEntries.push({
+      pos: "X",
+      highlight: true,
+      avg: calculateAvg(personalEntry),
+      ...personalEntry,
+    });
+  }
+
+  return toImage(
+    <div
+      tw="flex flex-row w-full h-full bg-white"
+      style={{ color: primaryColor() }}
+    >
+      <div
+        tw="flex flex-col justify-between h-full"
+        style={{
+          backgroundColor: primaryColor(0.04),
+          borderRight: "1px solid",
+          borderColor: primaryColor(0.2),
+        }}
+      >
+        <div tw="flex flex-col px-12 py-16" style={{ gap: "1rem" }}>
+          <div tw="flex text-5xl" style={{ fontFamily: "SpaceGrotesk" }}>
+            Leaderboard
+          </div>
+          <div
+            tw="flex text-4xl"
+            style={{ fontFamily: "Inter", color: primaryColor(0.54) }}
+          >
+            Last 14 days
+          </div>
+        </div>
+        <div
+          tw="flex text-5xl p-12 text-white"
+          style={{ fontFamily: "SpaceGrotesk", fontWeight: 700 }}
+        >
+          Framedl
+        </div>
+      </div>
+      <div
+        tw="flex flex-col justify-center flex-1 px-12 py-12 text-4xl"
+        style={{ gap: "1rem" }}
+      >
+        {leaderboardEntries.map((e, idx) =>
+          e != null ? (
+            <div
+              key={idx}
+              tw="flex flex-row items-center justify-between"
+              style={{ gap: "3rem", fontWeight: e.highlight ? 600 : 400 }}
+            >
+              <div
+                tw="flex items-center justify-center rounded text-3xl w-12 h-12"
+                style={{
+                  backgroundColor: primaryColor(e.highlight ? 0.24 : 0.12),
+                }}
+              >
+                {e.pos}
+              </div>
+              <div
+                tw="flex overflow-hidden"
+                style={{
+                  maxWidth: "330px",
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {e.userData?.displayName || e.fid}
+              </div>
+              <div
+                tw="flex flex-1 pt-2"
+                style={{
+                  backgroundColor: primaryColor(e.highlight ? 0.24 : 0.12),
+                }}
+              ></div>
+              <div tw="flex justify-end" style={{ width: "40px" }}>
+                {e.totalGamesWon}
+              </div>
+              <div tw="flex justify-end" style={{ width: "80px" }}>
+                {e.avg > 0 ? (
+                  <div tw="flex items-end">
+                    {e.avg
+                      .toFixed(2)
+                      .split(".")
+                      .map((part, idx) =>
+                        idx === 0 ? (
+                          <span key={idx}>{part}</span>
+                        ) : (
+                          <span
+                            key={idx}
+                            tw="text-3xl"
+                            style={{ color: primaryColor(0.54) }}
+                          >
+                            .{part}
+                          </span>
+                        )
+                      )}
+                  </div>
+                ) : (
+                  "X"
+                )}
+              </div>
+            </div>
+          ) : (
+            <div key={idx} tw="flex w-full justify-between py-2">
+              {Array.from({ length: 48 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  tw="flex w-1 h-1 rounded-full"
+                  style={{ backgroundColor: primaryColor(0.24) }}
+                />
+              ))}
+            </div>
+          )
+        )}
+      </div>
+    </div>
   );
 }

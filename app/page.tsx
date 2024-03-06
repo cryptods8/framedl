@@ -42,7 +42,7 @@ interface GameImageParams {
 }
 
 interface GameFrame {
-  status: "initial" | "in_progress" | "invalid" | "finished";
+  status: "initial" | "in_progress" | "invalid" | "finished" | "leaderboard";
   imageParams: GameImageParams;
   game?: GuessedGame;
 }
@@ -188,17 +188,29 @@ export default async function Home({ searchParams }: NextServerPageProps) {
   const inputText =
     state.status !== "finished" ? frameMessage?.inputText : undefined;
 
+  if (state.status === "finished" && frameMessage?.buttonIndex === 2) {
+    // return leaderboard
+    const imageUrl = `${baseUrl}/api/images/leaderboard?fid=${fid}`;
+    const signedImageUrl = signUrl(imageUrl);
+    return (
+      <FrameContainer
+        pathname="/"
+        postUrl="/frames"
+        state={{ ...state, status: "leaderboard" }}
+        previousFrame={previousFrame}
+      >
+        <FrameImage src={signedImageUrl} />
+        <FrameButton>Back</FrameButton>
+      </FrameContainer>
+    );
+  }
+
   const { game, imageParams, status } = await timeCall("nextFrame", () =>
     nextFrame(fid, inputText, frameMessage?.requesterUserData || undefined)
   );
 
   // then, when done, return next frame
   const isFinished = status === "finished";
-  const buttonLabel = isFinished
-    ? `Play again in ${24 - new Date().getUTCHours()} hours`
-    : fid
-    ? "Guess"
-    : "Start";
 
   const gameIdParam = searchParams?.id as string;
   const gameById = gameIdParam
@@ -239,7 +251,15 @@ export default async function Home({ searchParams }: NextServerPageProps) {
   if (fid && !isFinished) {
     elements.push(<FrameInput key="input" text="Make your guess..." />);
   }
+  const buttonLabel = isFinished
+    ? `Play again in ${24 - new Date().getUTCHours()} hours`
+    : fid
+    ? "Guess"
+    : "Start";
   elements.push(<FrameButton key="button">{buttonLabel}</FrameButton>);
+  if (isFinished) {
+    elements.push(<FrameButton key="leaderboard">Leaderboard</FrameButton>);
+  }
   redirects.forEach((r, i) =>
     elements.push(
       <FrameButton key={i} action="link" target={r.url}>

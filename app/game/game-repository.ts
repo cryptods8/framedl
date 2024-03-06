@@ -33,6 +33,23 @@ export interface UserStats {
   lastGameWonDate?: string;
   winGuessCounts: Record<number, number>;
   last30: GameResult[];
+  userData?: UserData;
+}
+
+export interface LeaderboardEntry {
+  lastDate?: string;
+  fid: number;
+  userData?: UserData;
+  last14: GameResult[];
+  totalGamesWon: number;
+  totalGamesWonGuesses: number;
+  score: number;
+}
+
+export interface Leaderboard {
+  date: string;
+  entries: LeaderboardEntry[];
+  lastUpdatedAt: number;
 }
 
 export interface UserStatsSave extends Omit<UserStats, "id"> {
@@ -50,6 +67,9 @@ export interface GameRepository {
   loadById(id: string): Promise<Game | null>;
   saveStats(stats: UserStatsSave): Promise<UserStats>;
   loadStatsByFid(fid: number): Promise<UserStats | null>;
+  loadAllStats(): Promise<UserStats[]>;
+  loadLeaderboard(): Promise<Leaderboard | null>;
+  saveLeaderboard(leaderboard: Leaderboard): Promise<Leaderboard>;
 }
 
 export class GameRepositoryImpl implements GameRepository {
@@ -97,5 +117,19 @@ export class GameRepositoryImpl implements GameRepository {
   async loadStatsByFid(fid: number): Promise<UserStats | null> {
     const key = `stats/fid/${fid}`;
     return await db.get<UserStats>(key);
+  }
+
+  async loadAllStats(): Promise<UserStats[]> {
+    return await db.getAll<UserStats>("stats/fid/*");
+  }
+
+  async loadLeaderboard(): Promise<Leaderboard | null> {
+    return await db.get<Leaderboard>("leaderboard");
+  }
+
+  async saveLeaderboard(leaderboard: Leaderboard): Promise<Leaderboard> {
+    const updatedLeaderboard = { ...leaderboard, lastUpdatedAt: Date.now() };
+    await db.set<Leaderboard>("leaderboard", updatedLeaderboard);
+    return updatedLeaderboard;
   }
 }

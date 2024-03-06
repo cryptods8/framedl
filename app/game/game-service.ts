@@ -5,6 +5,9 @@ import {
   UserData,
   UserStats,
   UserStatsSave,
+  GameResult,
+  LeaderboardEntry,
+  Leaderboard,
 } from "./game-repository";
 import answers from "../words/answer-words";
 import allWords from "../words/all-words";
@@ -60,6 +63,12 @@ export interface GameService {
   isValidGuess(guess: string): boolean;
   validateGuess(guess: string | null | undefined): GuessValidationStatus;
   loadStats(fid: number): Promise<UserStats | null>;
+  loadLeaderboard(fid: number | null | undefined): Promise<PersonalLeaderboard>;
+}
+
+export interface PersonalLeaderboard extends Leaderboard {
+  personalEntry?: LeaderboardEntry;
+  personalEntryIndex?: number;
 }
 
 const GUESS_PATTERN = /^[A-Za-z]{5}$/;
@@ -273,6 +282,7 @@ export class GameServiceImpl implements GameService {
     guessedGame: GuessedGame
   ): UserStatsSave {
     const newStats = { ...stats };
+    newStats.userData = guessedGame.userData;
     if (guessedGame.status === "WON") {
       newStats.totalWins++;
       const guessCount = guessedGame.guesses.length;
@@ -323,7 +333,11 @@ export class GameServiceImpl implements GameService {
       // update stats
       const stats = await this.loadOrCreateStats(guessedGame);
       const newStats = this.updateStats(stats, resultGame);
-      await this.gameRepository.saveStats(newStats);
+      // update leaderboard !!! POSSIBLE RACE CONDITION !!!
+      const savedStats = await this.gameRepository.saveStats(newStats);
+      const l = await this.loadLeaderboard(null);
+      const updatedLeaderboard = await this.updateLeaderboard(savedStats, l);
+      await this.gameRepository.saveLeaderboard(updatedLeaderboard);
     }
     return resultGame;
   }
@@ -351,6 +365,146 @@ export class GameServiceImpl implements GameService {
 
   isValidGuess(guess: string): boolean {
     return this.validateGuess(guess) === "VALID";
+  }
+
+  private async toLeaderboardEntry(
+    stats: UserStats,
+    lastDate: string
+  ): Promise<LeaderboardEntry> {
+    const resultMap = stats.last30.reduce((acc, g) => {
+      acc[g.date] = g;
+      return acc;
+    }, {} as Record<string, GameResult>);
+    const toDate = resultMap[lastDate]
+      ? new Date(lastDate)
+      : new Date(new Date(lastDate).getTime() - 1000 * 60 * 60 * 24);
+    const last14: GameResult[] = [];
+    let lastPlayedDate: string | undefined = undefined;
+    let totalGamesWon = 0;
+    let totalGamesWonGuesses = 0;
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date(toDate.getTime() - 1000 * 60 * 60 * 24 * i);
+      const dateKey = this.getDayString(date);
+      const result = resultMap[dateKey];
+      if (result) {
+        last14.push(result);
+        if (result.won) {
+          totalGamesWon++;
+          totalGamesWonGuesses += result.guessCount;
+        }
+        lastPlayedDate = dateKey;
+      }
+    }
+    let userData = stats.userData;
+    if (!userData && lastPlayedDate) {
+      const lastGame = await this.gameRepository.loadByFidAndDate(
+        stats.fid,
+        lastPlayedDate
+      );
+      userData = lastGame?.userData;
+    }
+    const maxGuesses = 14 * MAX_GUESSES * 1.5;
+    const totalGuesses =
+      totalGamesWonGuesses + MAX_GUESSES * 1.5 * (14 - totalGamesWon);
+    const score = maxGuesses - totalGuesses;
+    return {
+      fid: stats.fid,
+      totalGamesWon,
+      totalGamesWonGuesses,
+      lastDate: lastPlayedDate,
+      last14,
+      userData,
+      score,
+    };
+  }
+
+  private async enrichLeaderboard(
+    l: Leaderboard,
+    fid: number,
+    loadStatsByFid: (fid: number) => Promise<UserStats | null | undefined>
+  ): Promise<PersonalLeaderboard> {
+    const personalEntryIndex = l.entries.findIndex((e) => e.fid === fid);
+    if (personalEntryIndex !== -1) {
+      const personalEntry = l.entries[personalEntryIndex];
+      return {
+        ...l,
+        personalEntry,
+        personalEntryIndex,
+      };
+    }
+    const statsForFid = await loadStatsByFid(fid);
+    if (statsForFid) {
+      const personalEntry = await this.toLeaderboardEntry(statsForFid, l.date);
+      return {
+        ...l,
+        personalEntry,
+      };
+    }
+    return l;
+  }
+
+  private sortLeaderboardEntries(
+    entries: LeaderboardEntry[]
+  ): LeaderboardEntry[] {
+    return [...entries].sort((a, b) => b.score - a.score).slice(0, 10);
+  }
+
+  private async updateLeaderboard(
+    stats: UserStats,
+    l: Leaderboard
+  ): Promise<Leaderboard> {
+    const entries = [...l.entries];
+    const personalEntryIndex = entries.findIndex((e) => e.fid === stats.fid);
+    const personalEntry = await this.toLeaderboardEntry(stats, l.date);
+    if (stats.fid === 11124) {
+      return l;
+    }
+    if (personalEntryIndex !== -1) {
+      entries[personalEntryIndex] = personalEntry;
+    } else {
+      entries.push(personalEntry);
+    }
+    const lastDate = stats.last30[stats.last30.length - 1]?.date;
+    return {
+      ...l,
+      date: lastDate && lastDate > l.date ? lastDate : l.date,
+      entries: this.sortLeaderboardEntries(entries),
+      lastUpdatedAt: Date.now(),
+    };
+  }
+
+  async loadLeaderboard(
+    fid: number | null | undefined
+  ): Promise<PersonalLeaderboard> {
+    const l = await this.gameRepository.loadLeaderboard();
+    if (l) {
+      if (fid == null) {
+        return l;
+      }
+      return this.enrichLeaderboard(l, fid, this.gameRepository.loadStatsByFid);
+    }
+    const allStats = (await this.gameRepository.loadAllStats()).filter(
+      (s) => s.fid !== 11124
+    );
+    const lastDate = allStats.reduce((acc, s) => {
+      const last = s.last30[s.last30.length - 1]?.date;
+      return last && last > acc ? last : acc;
+    }, "2024-02-05");
+    const entries = await Promise.all(
+      allStats.map((s) => this.toLeaderboardEntry(s, lastDate))
+    );
+    const newLeaderboard = {
+      date: lastDate,
+      entries: this.sortLeaderboardEntries(entries),
+      lastUpdatedAt: Date.now(),
+    };
+    await this.gameRepository.saveLeaderboard(newLeaderboard);
+    if (fid == null) {
+      return newLeaderboard;
+    }
+    return this.enrichLeaderboard(newLeaderboard, fid, (fid) =>
+      Promise.resolve(allStats.find((s) => s.fid === fid))
+    );
   }
 }
 
