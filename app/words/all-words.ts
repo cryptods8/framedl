@@ -3787,6 +3787,7 @@ export default [
   'soaks',
   'soaps',
   'soapy',
+  'soare',
   'soars',
   'sober',
   'socks',
