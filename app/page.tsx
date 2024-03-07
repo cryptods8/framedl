@@ -189,6 +189,19 @@ export default async function Home({ searchParams }: NextServerPageProps) {
     state.status !== "finished" ? frameMessage?.inputText : undefined;
 
   if (state.status === "finished" && frameMessage?.buttonIndex === 2) {
+    const clientType = previousFrame.postBody
+      ? await timeCall("getClientType", () =>
+          getClientType(previousFrame.postBody!)
+        )
+      : null;
+    let shareUrl;
+    if (clientType === "WARPCAST") {
+      const url = `${baseUrl}/leaderboard?fid=${fid}`;
+      const params = new URLSearchParams();
+      params.set("text", `Framedl Leaderboard`);
+      params.set("embeds[]", url);
+      shareUrl = `https://warpcast.com/~/compose?${params.toString()}`;
+    }
     // return leaderboard
     const imageUrl = `${baseUrl}/api/images/leaderboard?fid=${fid}`;
     const signedImageUrl = signUrl(imageUrl);
@@ -201,6 +214,11 @@ export default async function Home({ searchParams }: NextServerPageProps) {
       >
         <FrameImage src={signedImageUrl} />
         <FrameButton>Back</FrameButton>
+        {shareUrl ? (
+          <FrameButton action="link" target={shareUrl}>
+            Share
+          </FrameButton>
+        ) : null}
       </FrameContainer>
     );
   }

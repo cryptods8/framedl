@@ -10,16 +10,13 @@ if (!process.env.FJS_MONOREPO) {
     "concurrently",
     "--kill-others",
     '"next dev"',
-    `"frames ${
+    `"frames${
       process.env.NEXT_PUBLIC_HOST
-        ? "--url ${process.env.NEXT_PUBLIC_HOST}"
+        ? ` --url ${process.env.NEXT_PUBLIC_HOST}`
         : ""
-    }  "`,
+    }"`,
   ];
 }
-
-console.log("COMMAND: ", command);
-console.log("ARGS: ", args);
 
 // Spawn the child process
 const child = spawn(command, args, { stdio: "inherit", shell: true });
