@@ -13,13 +13,7 @@ function getRequestUrl(req: NextRequest) {
 
 function verifyUrl(req: NextRequest) {
   const url = getRequestUrl(req);
-  let verifiedUrl = url;
-  try {
-    verifiedUrl = verifySignedUrl(url);
-  } catch (e) {
-    // TODO remove when this stops happening
-    console.error("Failed to verify url", url, (e as any).message);
-  }
+  const verifiedUrl = verifySignedUrl(url);
   return new URL(verifiedUrl);
 }
 

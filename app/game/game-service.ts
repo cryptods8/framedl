@@ -12,6 +12,10 @@ import {
 import answers from "../words/answer-words";
 import allWords from "../words/all-words";
 
+const disqualifiedFids = (process.env.DISQUALIFIED_FIDS || "11124")
+  .split(",")
+  .map(Number);
+
 const startingDate = new Date("2024-02-03");
 
 const getWordForDate = (dateString: string): string => {
@@ -449,6 +453,10 @@ export class GameServiceImpl implements GameService {
     return [...entries].sort((a, b) => b.score - a.score).slice(0, 10);
   }
 
+  private isFidDisqualified(fid: number): boolean {
+    return disqualifiedFids.includes(fid);
+  }
+
   private async updateLeaderboard(
     stats: UserStats,
     l: Leaderboard
@@ -456,7 +464,7 @@ export class GameServiceImpl implements GameService {
     const entries = [...l.entries];
     const personalEntryIndex = entries.findIndex((e) => e.fid === stats.fid);
     const personalEntry = await this.toLeaderboardEntry(stats, l.date);
-    if (stats.fid === 11124) {
+    if (this.isFidDisqualified(stats.fid)) {
       return l;
     }
     if (personalEntryIndex !== -1) {
@@ -484,7 +492,7 @@ export class GameServiceImpl implements GameService {
       return this.enrichLeaderboard(l, fid, this.gameRepository.loadStatsByFid);
     }
     const allStats = (await this.gameRepository.loadAllStats()).filter(
-      (s) => s.fid !== 11124
+      (s) => !this.isFidDisqualified(s.fid)
     );
     const lastDate = allStats.reduce((acc, s) => {
       const last = s.last30[s.last30.length - 1]?.date;
